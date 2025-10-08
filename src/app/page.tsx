@@ -1,32 +1,81 @@
-import { getTeamsWithStats } from '@/lib/data';
-import { TeamRankingsTable } from '@/components/team-rankings-table';
-import { Button } from '@/components/ui/button';
-import Link from 'next/link';
-import { PlusCircle } from 'lucide-react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
-export default async function Home() {
-  const teams = await getTeamsWithStats();
+"use client";
+
+import { ArticleCard } from '@/components/article-card';
+import { useUser, useAuth, useFirestore, useCollection, useMemoFirebase } from '@/firebase';
+import { useRouter } from 'next/navigation';
+import { useEffect } from 'react';
+import { Header } from '@/components/shared/header';
+import { useToast } from '@/hooks/use-toast';
+import { collection, query, orderBy } from 'firebase/firestore';
+import type { NewsArticle } from '@/app/admin/news/page';
+import { Loader2 } from 'lucide-react';
+
+export default function Home() {
+  const { user, isUserLoading } = useUser();
+  const router = useRouter();
+  const auth = useAuth();
+  const firestore = useFirestore();
+  const { toast } = useToast();
+
+  useEffect(() => {
+    if (!isUserLoading) {
+      if (!user) {
+        router.push('/login');
+      } else if (!user.emailVerified) {
+        auth.signOut();
+        toast({
+          variant: 'destructive',
+          title: 'E-Mail nicht verifiziert',
+          description: 'Bitte bestätigen Sie Ihre E-Mail-Adresse, um sich anzumelden.',
+        });
+        router.push('/login');
+      }
+    }
+  }, [user, isUserLoading, router, auth, toast]);
+
+  const articlesQuery = useMemoFirebase(() => {
+    if (!firestore) return null;
+    return query(collection(firestore, 'news'), orderBy('createdAt', 'desc'));
+  }, [firestore]);
+
+  const { data: articles, isLoading: isLoadingArticles } = useCollection<NewsArticle>(articlesQuery);
+
+  if (isUserLoading || !user || !user.emailVerified) {
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center">
+        <div className="h-16 w-16 animate-spin rounded-full border-4 border-dashed border-primary"></div>
+        <p className="mt-4 text-muted-foreground">Loading...</p>
+      </div>
+    );
+  }
 
   return (
-    <div className="space-y-8">
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        <h1 className="text-3xl font-bold font-headline tracking-tight sm:text-4xl">Team Standings</h1>
-        <Button asChild>
-          <Link href="/admin">
-            <PlusCircle className="mr-2 h-4 w-4" />
-            Add Match Result
-          </Link>
-        </Button>
-      </div>
-      <Card>
-        <CardHeader>
-          <CardTitle>Current Season Rankings</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <TeamRankingsTable teams={teams} />
-        </CardContent>
-      </Card>
+    <div className="flex min-h-screen flex-col">
+      <Header />
+      <main className="flex-1">
+        <div className="container mx-auto px-4 py-8 md:py-12">
+          <section className="mb-8 animate-fade-in">
+            <h1 className="text-2xl font-bold tracking-tight font-headline">
+              Aktuelles
+            </h1>
+          </section>
+
+          {isLoadingArticles ? (
+             <div className="flex items-center justify-center h-64">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+             </div>
+          ) : (
+            <div className="grid grid-cols-1 gap-8 md:grid-cols-2 lg:grid-cols-3 animate-fade-in" style={{ animationDelay: '0.2s', animationFillMode: 'backwards' }}>
+              {articles && articles.length > 0 ? articles.map((article) => (
+                <ArticleCard key={article.id} article={article} />
+              )) : (
+                <p>Keine aktuellen Nachrichten vorhanden.</p>
+              )}
+            </div>
+          )}
+        </div>
+      </main>
     </div>
   );
 }

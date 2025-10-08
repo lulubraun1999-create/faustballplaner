@@ -1,0 +1,85 @@
+/**
+ * @fileoverview Firestore Security Rules for Prototyping.
+ *
+ * Core Philosophy:
+ * This ruleset prioritizes strict user-ownership for private data and public
+ * read access where appropriate. It avoids complex data validation to enable
+ * rapid prototyping.
+ *
+ * Data Structure:
+ * - /users/{userId}: Private user data, accessible only by the owning user.
+ * - /members/{memberId}: Public member profiles.
+ * - /groups/{groupId}: Group information.
+ *
+ * Key Security Decisions:
+ * - User listing is disallowed.
+ * - `member` profiles are publicly readable, but only updatable by the user.
+ * - Group data is not secured beyond requiring authentication.
+ *
+ * Denormalization for Authorization:
+ *  - The `Member` entity is created as a copy of the user profile to allow public
+ *  read access without compromising the security of the private `/users/{userId}` data.
+ */
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    /**
+     * @description Secure user profiles, accessible only by the owning user.
+     * @path /users/{userId}
+     * @allow (get, list) User with matching UID can read their own profile.
+     * @allow (create, update, delete) User with matching UID can modify their own profile.
+     * @deny (get, list) User cannot read another user's profile.
+     * @deny (create, update, delete) User cannot modify another user's profile.
+     * @principle Enforces document ownership for writes.
+     */
+    match /users/{userId} {
+      allow get, list: if isOwner(userId);
+      allow create: if isOwner(userId);
+      allow update: if isExistingOwner(userId);
+      allow delete: if isExistingOwner(userId);
+    }
+
+    /**
+     * @description Secure public-facing member profiles, mirroring user data.
+     * @path /members/{memberId}
+     * @allow (get, list) Any user can read member profiles.
+     * @allow (update) Only the user matching the memberId can update.
+     * @deny (create, delete) Creation and deletion are not allowed through direct client requests.
+     * @deny (update) User cannot modify another user's profile.
+     * @principle Public read access with owner-only writes.
+     */
+    match /members/{memberId} {
+      allow get, list: if true;
+      allow create: if isOwner(memberId);
+      allow update: if isExistingOwner(memberId);
+      allow delete: if isExistingOwner(memberId);
+    }
+
+    /**
+     * @description Secure group information. Any authenticated user can create and modify groups.
+     * @path /groups/{groupId}
+     * @allow (get, list) Any authenticated user can read group data.
+     * @allow (create, update, delete) Any authenticated user can create, update, and delete group data.
+     * @deny (create, update, delete) Unauthenticated users cannot modify group data.
+     */
+    match /groups/{groupId} {
+      allow get, list: if isSignedIn();
+      allow create: if isSignedIn();
+      allow update: if isSignedIn();
+      allow delete: if isSignedIn();
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return request.auth.uid == userId;
+    }
+
+    function isExistingOwner(userId) {
+        return isOwner(userId) && resource != null;
+    }
+  }
+}

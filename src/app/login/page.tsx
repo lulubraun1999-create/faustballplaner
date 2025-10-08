@@ -1,42 +1,24 @@
-import { Button } from "@/components/ui/button"
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import Link from "next/link"
+import Link from "next/link";
+import { LoginForm } from "./_components/login-form";
 
 export default function LoginPage() {
   return (
-    <div className="flex items-center justify-center py-12">
-      <Card className="w-full max-w-sm">
-        <CardHeader>
-          <CardTitle className="text-2xl font-headline">Admin Login</CardTitle>
-          <CardDescription>
-            Enter your credentials to access the admin panel.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="grid gap-4">
-          <div className="grid gap-2">
-            <Label htmlFor="email">Email</Label>
-            <Input id="email" type="email" placeholder="m@example.com" required />
-          </div>
-          <div className="grid gap-2">
-            <Label htmlFor="password">Password</Label>
-            <Input id="password" type="password" required />
-          </div>
-        </CardContent>
-        <CardFooter>
-            <Button className="w-full" asChild>
-                <Link href="/admin">Sign in</Link>
-            </Button>
-        </CardFooter>
-      </Card>
+    <div className="w-full flex items-center justify-center min-h-screen py-12">
+      <div className="mx-auto grid w-[400px] gap-6">
+        <div className="grid gap-2 text-center">
+          <h1 className="text-3xl font-bold">Login</h1>
+          <p className="text-balance text-muted-foreground">
+            Geben Sie Ihre E-Mail-Adresse ein, um sich bei Ihrem Konto anzumelden
+          </p>
+        </div>
+        <LoginForm />
+        <div className="mt-4 text-center text-sm">
+          Noch kein Konto?{" "}
+          <Link href="/signup" className="underline">
+            Registrieren
+          </Link>
+        </div>
+      </div>
     </div>
-  )
+  );
 }
