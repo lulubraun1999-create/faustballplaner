@@ -10,7 +10,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useFirestore } from '@/firebase';
-import { collection, doc, writeBatch } from 'firebase/firestore';
+import { collection, doc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2 } from 'lucide-react';
 import { Group } from '../page';
@@ -67,7 +67,7 @@ export function ManageGroupsForm({ onClose, parentGroups, allGroups }: ManageGro
                 newGroup.parentGroupId = data.parentGroupId;
             }
             addDocumentNonBlocking(groupsRef, newGroup);
-            toast({ title: "Erfolg", description: "Gruppe wurde hinzugefügt." });
+            toast({ title: "Erfolg", description: "Gruppe wird hinzugefügt." });
         } else if (data.action === 'edit') {
             const groupRef = doc(firestore, 'groups', data.targetGroupId!);
             const updateData: { name: string; parentGroupId?: string } = { name: data.newName! };
@@ -75,33 +75,16 @@ export function ManageGroupsForm({ onClose, parentGroups, allGroups }: ManageGro
                 updateData.parentGroupId = data.parentGroupId;
             }
             updateDocumentNonBlocking(groupRef, updateData);
-            toast({ title: "Erfolg", description: "Gruppe wurde aktualisiert." });
+            toast({ title: "Erfolg", description: "Gruppe wird aktualisiert." });
         } else if (data.action === 'delete') {
-            const groupToDelete = allGroups.find(g => g.id === data.targetGroupId);
-            if (!groupToDelete) {
-                 toast({ variant: 'destructive', title: "Fehler", description: "Gruppe nicht gefunden." });
+             if (!data.targetGroupId) {
+                 toast({ variant: 'destructive', title: "Fehler", description: "Keine Gruppe zum Löschen ausgewählt." });
                  startTransition(false);
                  return;
             }
-
-            const batch = writeBatch(firestore);
-            const groupRef = doc(firestore, 'groups', data.targetGroupId!);
-            batch.delete(groupRef);
-
-            if (!groupToDelete.parentGroupId) {
-                const subGroupsToDelete = allGroups.filter(g => g.parentGroupId === data.targetGroupId);
-                subGroupsToDelete.forEach(sub => {
-                    const subRef = doc(firestore, 'groups', sub.id);
-                    batch.delete(subRef);
-                });
-            }
-            
-            batch.commit().then(() => {
-              toast({ title: "Erfolg", description: "Gruppe (und ggf. Untergruppen) wurde gelöscht." });
-            }).catch(e => {
-                // This is a generic catch, the non-blocking functions will emit specific errors
-                toast({ variant: 'destructive', title: "Fehler", description: e.message || "Ein Fehler ist aufgetreten." });
-            });
+            const groupRef = doc(firestore, 'groups', data.targetGroupId);
+            deleteDocumentNonBlocking(groupRef);
+            toast({ title: "Erfolg", description: "Gruppe wird gelöscht." });
         }
 
         // Reset the form but keep some values
