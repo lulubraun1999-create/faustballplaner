@@ -14,13 +14,12 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import { useAuth, useFirestore } from "@/firebase";
+import { useAuth } from "@/firebase";
 import {
   createUserWithEmailAndPassword,
   sendEmailVerification,
   updateProfile,
 } from "firebase/auth";
-import { doc, setDoc } from "firebase/firestore";
 import { useRouter } from "next/navigation";
 import { useToast } from "@/hooks/use-toast";
 import React from "react";
@@ -38,7 +37,6 @@ const formSchema = z.object({
 
 export function SignUpForm() {
   const auth = useAuth();
-  const firestore = useFirestore();
   const router = useRouter();
   const { toast } = useToast();
   const [isPending, startTransition] = React.useTransition();
@@ -56,7 +54,7 @@ export function SignUpForm() {
 
   const onSubmit = (values: z.infer<typeof formSchema>) => {
     startTransition(async () => {
-      if (!auth || !firestore) return;
+      if (!auth) return;
       try {
         const userCredential = await createUserWithEmailAndPassword(
           auth,
@@ -69,22 +67,6 @@ export function SignUpForm() {
         await updateProfile(user, {
           displayName: displayName,
         });
-
-        // Create user profile documents in Firestore
-        const userDocRef = doc(firestore, "users", user.uid);
-        const memberDocRef = doc(firestore, "members", user.uid);
-        const userData = {
-            id: user.uid,
-            email: user.email,
-            name: displayName,
-            vorname: values.vorname,
-            nachname: values.nachname,
-            rolle: 'spieler', // default role
-            adminRechte: false,
-            groupIds: [],
-        };
-        await setDoc(userDocRef, userData);
-        await setDoc(memberDocRef, userData);
         
         await sendEmailVerification(user);
 
