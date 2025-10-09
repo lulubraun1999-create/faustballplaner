@@ -2,8 +2,8 @@
 "use client";
 
 import { useState, useMemo, useEffect } from 'react';
-import { useUser, useFirestore, useCollection, useMemoFirebase } from '@/firebase';
-import { collection, query, where, orderBy } from 'firebase/firestore';
+import { useUser, useFirestore, useCollection, useMemoFirebase, useDoc } from '@/firebase';
+import { collection, query, where, orderBy, doc } from 'firebase/firestore';
 import { Header } from '@/components/shared/header';
 import { Loader2 } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -19,13 +19,12 @@ export default function TeamCashPage() {
     const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null);
 
     // 1. Get the current user's profile to determine their role and group memberships
-    const userProfileQuery = useMemoFirebase(() => {
+    const userProfileRef = useMemoFirebase(() => {
         if (!firestore || !user) return null;
-        return query(collection(firestore, 'users'), where('__name__', '==', user.uid));
+        return doc(firestore, 'users', user.uid);
     }, [firestore, user]);
 
-    const { data: userProfileData, isLoading: isLoadingUserProfile } = useCollection<MemberProfile>(userProfileQuery);
-    const userProfile = useMemo(() => userProfileData?.[0], [userProfileData]);
+    const { data: userProfile, isLoading: isLoadingUserProfile } = useDoc<MemberProfile>(userProfileRef);
     const userGroupIds = useMemo(() => userProfile?.groupIds || [], [userProfile]);
 
     const hasAdminRights = userProfile?.adminRechte === true;
@@ -34,6 +33,9 @@ export default function TeamCashPage() {
     // 2. Determine which groups to fetch based on the user's role
     const groupsQuery = useMemoFirebase(() => {
         if (!firestore) return null;
+        // Wait for user profile to be loaded before deciding which groups to fetch
+        if (isLoadingUserProfile) return null; 
+
         if (hasAdminRights) {
             // Admins can see all groups
             return query(collection(firestore, 'groups'), orderBy('name'));
@@ -43,7 +45,7 @@ export default function TeamCashPage() {
             return query(collection(firestore, 'groups'), where('__name__', 'in', userGroupIds), orderBy('name'));
         }
         return null;
-    }, [firestore, hasAdminRights, userGroupIds]);
+    }, [firestore, hasAdminRights, userGroupIds, isLoadingUserProfile]);
 
     const { data: accessibleGroups, isLoading: isLoadingGroups } = useCollection<Group>(groupsQuery);
 
@@ -54,7 +56,7 @@ export default function TeamCashPage() {
         }
     }, [accessibleGroups, selectedGroupId]);
 
-    const isLoading = isLoadingUserProfile || isLoadingGroups;
+    const isLoading = isLoadingUserProfile || (userGroupIds.length > 0 && isLoadingGroups);
     const canEdit = hasAdminRights || (isTrainer && userGroupIds.includes(selectedGroupId || ''));
 
     return (
@@ -97,7 +99,9 @@ export default function TeamCashPage() {
                                     </Select>
                                 </div>
                             ) : (
-                                <p className="text-muted-foreground">Sie sind kein Mitglied einer Gruppe oder es sind keine Gruppen vorhanden.</p>
+                                 <p className="text-muted-foreground">
+                                    {hasAdminRights ? "Keine Gruppen gefunden. Bitte fügen Sie welche hinzu." : "Sie sind keiner Gruppe zugeordnet, die eine Teamkasse hat."}
+                                </p>
                             )}
                             
                             {selectedGroupId && (
