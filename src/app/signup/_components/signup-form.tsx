@@ -14,13 +14,17 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import { auth, firestore } from "@/firebase";
+import { 
+    firebaseConfig
+} from "@/firebase/config";
+import { initializeApp } from "firebase/app";
 import {
+  getAuth,
   createUserWithEmailAndPassword,
   sendEmailVerification,
   updateProfile,
 } from "firebase/auth";
-import { doc, setDoc } from "firebase/firestore";
+import { getFirestore, doc, setDoc } from "firebase/firestore";
 import { useRouter } from "next/navigation";
 import { useToast } from "@/hooks/use-toast";
 import React from "react";
@@ -55,6 +59,11 @@ export function SignUpForm() {
   const onSubmit = (values: z.infer<typeof formSchema>) => {
     startTransition(async () => {
       try {
+        // Initialize Firebase locally to ensure correct config
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const firestore = getFirestore(app);
+
         // Step 1: Create user with Firebase Auth
         const userCredential = await createUserWithEmailAndPassword(
           auth,
