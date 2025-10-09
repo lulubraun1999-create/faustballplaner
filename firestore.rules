@@ -1,86 +1,64 @@
-
 rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Helper function to check if a user has admin rights.
+
+    function isAuth() {
+      return request.auth != null;
+    }
+
     function isAdmin() {
       return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.adminRechte == true;
     }
 
-    // Helper function to check if a user is a member of a specific group.
-    function isMemberOfGroup(groupId) {
-      return groupId in get(/databases/$(database)/documents/users/$(request.auth.uid)).data.groupIds;
-    }
-
-    // Rules for the 'users' collection
-    match /users/{userId} {
-      // Admins can read any user profile.
-      // A user can read their own profile.
-      allow read: if isAdmin() || request.auth.uid == userId;
-      // Admins can write to any user profile.
-      // A user can write to their own profile.
-      allow write: if isAdmin() || request.auth.uid == userId;
-    }
-
-    // Rules for the 'members' collection (publicly readable member data)
-    match /members/{memberId} {
-      // Allow any authenticated user to read the public member list.
-      allow read: if request.auth != null;
-      // Only admins can write to the public member list.
-      allow write: if isAdmin();
-    }
-
-    // Rules for the 'groups' collection
-    match /groups/{groupId} {
-      // Any authenticated user can read the group structure.
-      allow read: if request.auth != null;
-      // Only admins can create, update, or delete groups.
-      allow write: if isAdmin();
-    }
-
-    // Rules for 'news' articles
-    match /news/{articleId} {
-      // Any authenticated user can read news articles.
-      allow read: if request.auth != null;
-      // Only admins can create, update, or delete news articles.
-      allow write: if isAdmin();
-    }
-
-    // Rules for 'team-cash-transactions'
-    match /team-cash-transactions/{transactionId} {
-      allow read: if isAdmin() || isMemberOfGroup(resource.data.groupId);
-      allow create: if isAdmin() || isMemberOfGroup(request.resource.data.groupId);
-      allow update, delete: if isAdmin() || (isMemberOfGroup(resource.data.groupId) && request.auth.uid == resource.data.createdBy);
+    function isOwner(userId) {
+      return request.auth.uid == userId;
     }
     
-    // Rules for the 'penalties' collection
-    match /penalties/{penaltyId} {
-      allow read: if isAdmin() || isMemberOfGroup(resource.data.groupId);
-      allow write: if isAdmin() || isMemberOfGroup(request.resource.data.groupId);
+    function isMemberOfGroup(groupId) {
+      return exists(/databases/$(database)/documents/members/$(request.auth.uid)) && get(/databases/$(database)/documents/members/$(request.auth.uid)).data.groupIds.hasAny([groupId]);
     }
 
-    // Rules for 'surveys' and their 'responses' subcollection
-    match /surveys/{surveyId} {
-      // Allow read if user is admin, or if survey is public, or if user is in a target group
-      allow read: if isAdmin() || resource.data.targetGroupIds.size() == 0 || resource.data.targetGroupIds.hasAny(get(/databases/$(database)/documents/users/$(request.auth.uid)).data.groupIds);
-      // Allow write (create/update/delete survey) only for admins
+    match /users/{userId} {
+      allow read, write: if isOwner(userId) || isAdmin();
+    }
+
+    match /members/{memberId} {
+      allow read: if isAuth();
       allow write: if isAdmin();
+    }
+    
+    match /groups/{groupId} {
+        allow read: if isAuth();
+        allow create, update, delete: if isAdmin();
+    }
 
-      // Rules for the 'responses' subcollection
+    match /news/{articleId} {
+      allow read: if isAuth();
+      allow create, update, delete: if isAdmin();
+    }
+    
+    match /surveys/{surveyId} {
+      allow read: if isAuth();
+      allow create, delete: if isAdmin();
+      // Allow updates only for voting, not changing the structure
+      allow update: if isAuth() && request.resource.data.keys().hasOnly(['options']);
+      
       match /responses/{responseId} {
-        // A user can read their own response. Admins can read all responses.
-        allow read: if isAdmin() || request.auth.uid == responseId;
-        
-        // A user can create their own response document if they haven't voted yet.
-        allow create: if request.auth.uid == responseId && !exists(/databases/$(database)/documents/surveys/$(surveyId)/responses/$(request.auth.uid));
-
-        // A user can delete their own response to retract a vote.
-        allow delete: if request.auth.uid == responseId;
-
-        // Nobody can update a response document directly. Updates happen via transactions.
-        allow update: if false;
+          allow read, create, delete: if isAuth() && (isOwner(responseId) || isAdmin());
       }
+    }
+
+    match /team-cash-transactions/{transactionId} {
+      // Any authenticated user can read all transactions
+      allow read: if isAuth();
+      // Only admins or members of the group can create/update/delete
+      allow create, update, delete: if isAdmin() || (isAuth() && isMemberOfGroup(request.resource.data.groupId));
+    }
+    
+    match /penalties/{penaltyId} {
+        allow read: if isAuth();
+        allow create, update, delete: if isAdmin() || (isAuth() && isMemberOfGroup(request.resource.data.groupId));
     }
   }
 }
