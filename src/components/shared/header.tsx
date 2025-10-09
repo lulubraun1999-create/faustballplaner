@@ -67,7 +67,7 @@ export function Header() {
                   <Link href="/admin/appointments">Termine</Link>
                 </DropdownMenuItem>
                  <DropdownMenuItem asChild>
-                  <Link href="/admin/team-cash">Mannschaftskasse</Link>
+                  <Link href="/admin/teamkasse">Teamkasse</Link>
                 </DropdownMenuItem>
                 <DropdownMenuItem asChild>
                   <Link href="/admin/members">Mitglieder</Link>
