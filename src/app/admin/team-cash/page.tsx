@@ -1,11 +1,11 @@
 
 "use client";
 
-import { useState, useMemo, useEffect, FC } from 'react';
+import { useState, useMemo, FC } from 'react';
 import Link from 'next/link';
 import { Header } from "@/components/shared/header";
 import { useFirestore, useCollection, useMemoFirebase, deleteDocumentNonBlocking, useUser } from "@/firebase";
-import { collection, query, orderBy, doc, where } from "firebase/firestore";
+import { collection, query, where } from "firebase/firestore";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Loader2, MoreHorizontal, PlusCircle, Trash2, Edit, BookMarked, Wallet } from "lucide-react";
@@ -14,22 +14,8 @@ import { format } from 'date-fns';
 import { de } from 'date-fns/locale';
 import type { Group } from '../groups/page';
 import { AddTransactionForm } from './components/add-transaction-form';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { useToast } from '@/hooks/use-toast';
 import { EditTransactionForm } from './components/edit-transaction-form';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -47,9 +33,6 @@ export interface TeamCashTransaction {
     createdBy: string;
 }
 
-// =========================================================================
-// TransactionView Component - Renders only when a subGroupId is selected
-// =========================================================================
 interface TransactionViewProps {
     subGroupId: string;
     subGroupName: string;
@@ -60,10 +43,9 @@ const TransactionView: FC<TransactionViewProps> = ({ subGroupId, subGroupName, o
     const firestore = useFirestore();
     const { toast } = useToast();
 
-    // This query is now safe because it's only created and run when subGroupId is valid.
     const transactionsQuery = useMemoFirebase(() => {
         if (!firestore || !subGroupId) return null;
-        return query(collection(firestore, 'team-cash-transactions'), where('groupId', '==', subGroupId), orderBy('date', 'desc'));
+        return query(collection(firestore, 'team-cash-transactions'), where('groupId', '==', subGroupId), where('archived', '!=', true), orderBy('date', 'desc'));
     }, [firestore, subGroupId]);
     
     const { data: transactions, isLoading } = useCollection<TeamCashTransaction>(transactionsQuery);
@@ -152,32 +134,39 @@ const TransactionView: FC<TransactionViewProps> = ({ subGroupId, subGroupName, o
     );
 };
 
-
-// =========================================================================
-// TeamCashPage Component - Main page controller
-// =========================================================================
 export default function TeamCashPage() {
     const firestore = useFirestore();
     const { user } = useUser();
     const [isAdding, setIsAdding] = useState(false);
     const [editingTransaction, setEditingTransaction] = useState<TeamCashTransaction | null>(null);
     const [selectedSubGroupId, setSelectedSubGroupId] = useState<string | null>(null);
+    
+    // Step 1: Get the current user's profile to find their groupIds
+    const userProfileQuery = useMemoFirebase(() => {
+        if (!firestore || !user) return null;
+        return doc(firestore, 'users', user.uid);
+    }, [firestore, user]);
+    const { data: userProfile, isLoading: isLoadingUserProfile } = useCollection(userProfileQuery);
+    const userGroupIds = useMemo(() => userProfile?.[0]?.groupIds || [], [userProfile]);
 
-    // Fetch only sub-groups
-    const subGroupsQuery = useMemoFirebase(() => {
-        if (!firestore) return null;
-        return query(collection(firestore, 'groups'), where('parentGroupId', '!=', null), orderBy('name'));
-    }, [firestore]);
-    const { data: subGroups, isLoading: isLoadingSubGroups } = useCollection<Group>(subGroupsQuery);
+    // Step 2: Fetch only the groups the user is a member of.
+    const userGroupsQuery = useMemoFirebase(() => {
+        if (!firestore || userGroupIds.length === 0) return null;
+        return query(collection(firestore, 'groups'), where('__name__', 'in', userGroupIds));
+    }, [firestore, userGroupIds]);
+    const { data: userGroups, isLoading: isLoadingUserGroups } = useCollection<Group>(userGroupsQuery);
 
-
+    // Filter for sub-groups from the user's groups
+    const userSubGroups = useMemo(() => {
+        return (userGroups || []).filter(g => g.parentGroupId).sort((a, b) => a.name.localeCompare(b.name));
+    }, [userGroups]);
+    
     const handleEditTransaction = (transaction: TeamCashTransaction) => {
         setEditingTransaction(transaction);
     };
 
-    const isLoading = isLoadingSubGroups;
-    const selectedSubGroupName = useMemo(() => subGroups?.find(g => g.id === selectedSubGroupId)?.name || '', [subGroups, selectedSubGroupId]);
-
+    const isLoading = isLoadingUserProfile || isLoadingUserGroups;
+    const selectedSubGroupName = useMemo(() => userSubGroups?.find(g => g.id === selectedSubGroupId)?.name || '', [userSubGroups, selectedSubGroupId]);
 
     if (isAdding) {
          return (
@@ -187,7 +176,7 @@ export default function TeamCashPage() {
                     <div className="container mx-auto px-4 py-8 md:py-12">
                         <AddTransactionForm 
                             onClose={() => setIsAdding(false)} 
-                            subGroups={subGroups || []}
+                            subGroups={userSubGroups || []}
                             initialGroupId={selectedSubGroupId}
                         />
                     </div>
@@ -210,7 +199,7 @@ export default function TeamCashPage() {
                                     Strafenkatalog
                                 </Link>
                             </Button>
-                            <Button variant="outline" onClick={() => setIsAdding(true)} disabled={!subGroups || subGroups.length === 0}>
+                            <Button variant="outline" onClick={() => setIsAdding(true)} disabled={!userSubGroups || userSubGroups.length === 0}>
                                 <PlusCircle className="mr-2 h-4 w-4" />
                                 Transaktion hinzufügen
                             </Button>
@@ -223,7 +212,7 @@ export default function TeamCashPage() {
                          </div>
                     ) : (
                         <div className="space-y-6">
-                           {subGroups && subGroups.length > 0 ? (
+                           {userSubGroups && userSubGroups.length > 0 ? (
                             <>
                                 <div className="max-w-xs space-y-2">
                                     <Label htmlFor="group-select">Mannschaft auswählen</Label>
@@ -232,7 +221,7 @@ export default function TeamCashPage() {
                                             <SelectValue placeholder="Mannschaft auswählen..." />
                                         </SelectTrigger>
                                         <SelectContent>
-                                            {subGroups.map(g => (
+                                            {userSubGroups.map(g => (
                                                 <SelectItem key={g.id} value={g.id}>{g.name}</SelectItem>
                                             ))}
                                         </SelectContent>
@@ -246,19 +235,19 @@ export default function TeamCashPage() {
                                     />
                                 ) : (
                                     <div className="flex items-center justify-center h-48 text-muted-foreground border rounded-lg bg-muted/50">
-                                        Bitte wählen Sie eine Mannschaft aus, um die Transaktionen anzuzeigen.
+                                        Bitte wählen Sie eine Ihrer Mannschaften aus, um die Transaktionen anzuzeigen.
                                     </div>
                                 )}
                             </>
                             ) : (
                                 <Card>
                                   <CardHeader>
-                                    <CardTitle>Keine Mannschaften vorhanden</CardTitle>
+                                    <CardTitle>Keine Mannschaftszugehörigkeit</CardTitle>
                                   </CardHeader>
                                   <CardContent>
-                                    <p className="text-muted-foreground mb-4">Es sind keine Untergruppen (Mannschaften) angelegt. Bitte legen Sie zuerst eine an.</p>
+                                    <p className="text-muted-foreground mb-4">Sie sind derzeit keiner Mannschaft zugeordnet. Bitten Sie einen Administrator, Sie einer Mannschaft hinzuzufügen.</p>
                                      <Button asChild>
-                                        <Link href="/admin/groups">Gruppen verwalten</Link>
+                                        <Link href="/admin/groups">Gruppen anzeigen</Link>
                                     </Button>
                                   </CardContent>
                                 </Card>
@@ -266,10 +255,10 @@ export default function TeamCashPage() {
                         </div>
                     )}
                 </div>
-                 {editingTransaction && subGroups && (
+                 {editingTransaction && userSubGroups && (
                     <EditTransactionForm
                         transaction={editingTransaction}
-                        subGroups={subGroups}
+                        subGroups={userSubGroups}
                         isOpen={!!editingTransaction}
                         onClose={() => setEditingTransaction(null)}
                     />
@@ -278,3 +267,5 @@ export default function TeamCashPage() {
         </div>
     );
 }
+
+    

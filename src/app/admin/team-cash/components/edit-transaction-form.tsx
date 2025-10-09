@@ -99,7 +99,7 @@ export function EditTransactionForm({ transaction, isOpen, onClose, subGroups }:
   const onSubmit = (data: FormSchemaType) => {
     startTransition(true);
     
-    const finalAmount = data.transactionType === 'expense' ? -Math.abs(data.amount) : Math.abs(data.amount);
+    const finalAmount = data.transactionType === 'expense' ? -Math.abs(data.amount!) : Math.abs(data.amount!);
     const selectedMember = membersInGroup?.find(m => m.id === data.memberId);
 
     const transactionData = {
@@ -223,7 +223,7 @@ export function EditTransactionForm({ transaction, isOpen, onClose, subGroups }:
                         control={control}
                         render={({ field }) => (
                             <Select onValueChange={field.onChange} value={field.value} disabled={isLoadingMembers || !sortedMembersInGroup}>
-                                <SelectTrigger id="memberId"><SelectValue placeholder={isLoadingMembers ? 'Laden...' : 'Mitglied auswählen...'} /></SelectTrigger>
+                                <SelectTrigger id="memberId"><SelectValue placeholder={isLoadingMembers ? 'Laden...' : 'Mitglied auswählen...'}/></SelectTrigger>
                                 <SelectContent>
                                     <SelectItem value="none">Kein Mitglied</SelectItem>
                                     {sortedMembersInGroup && sortedMembersInGroup.map(member => (

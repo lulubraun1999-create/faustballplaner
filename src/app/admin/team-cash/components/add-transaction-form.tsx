@@ -76,14 +76,12 @@ export function AddTransactionForm({ onClose, subGroups, initialGroupId }: AddTr
   const penaltyId = watch('penaltyId');
   const selectedGroupId = watch('groupId');
   
-  // Fetch penalties for the selected group on demand
   const penaltiesQuery = useMemoFirebase(() => {
     if (!firestore || !selectedGroupId) return null;
     return query(collection(firestore, 'penalties'), where('groupId', '==', selectedGroupId));
   }, [firestore, selectedGroupId]);
   const { data: penaltiesForGroup, isLoading: isLoadingPenalties } = useCollection<Penalty>(penaltiesQuery);
 
-  // Fetch members for the selected group on demand
   const membersQuery = useMemoFirebase(() => {
     if (!firestore || !selectedGroupId) return null;
     return query(collection(firestore, 'members'), where('groupIds', 'array-contains', selectedGroupId));
@@ -104,7 +102,6 @@ export function AddTransactionForm({ onClose, subGroups, initialGroupId }: AddTr
     }
   }, [penaltyId, penaltiesForGroup, setValue]);
 
-  // When group changes, reset dependent fields
   useEffect(() => {
     setValue('penaltyId', 'none');
     setValue('memberId', 'none');
@@ -125,7 +122,7 @@ export function AddTransactionForm({ onClose, subGroups, initialGroupId }: AddTr
     }
     setIsPending(true);
     
-    const finalAmount = data.transactionType === 'expense' ? -Math.abs(data.amount) : Math.abs(data.amount);
+    const finalAmount = data.transactionType === 'expense' ? -Math.abs(data.amount!) : Math.abs(data.amount!);
     const selectedMember = membersForGroup?.find(m => m.id === data.memberId);
 
     const transactionData = {
@@ -309,9 +306,5 @@ export function AddTransactionForm({ onClose, subGroups, initialGroupId }: AddTr
     </div>
   );
 }
-
-    
-
-    
 
     
