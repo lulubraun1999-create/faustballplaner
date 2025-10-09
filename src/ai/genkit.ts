@@ -1,17 +1,8 @@
-import 'dotenv/config';
-import {genkit} from 'genkit';
-import {googleAI} from '@genkit-ai/google-genai';
+'use server';
+// This file is intentionally left empty to resolve an API key conflict.
+// We can restore AI functionality later.
 
-const geminiApiKey = process.env.GEMINI_API_KEY;
-
-if (!geminiApiKey) {
-  console.warn(
-    'GEMINI_API_KEY is not set. Genkit-related functionality will be disabled.'
-  );
-}
-
-export const ai = genkit({
-  plugins: [
-    ...(geminiApiKey ? [googleAI({apiKey: geminiApiKey})] : []),
-  ],
-});
+export const ai = {
+    defineFlow: (config: any, implementation: any) => implementation,
+    definePrompt: (config: any) => (input: any) => Promise.resolve({ output: null }),
+};
