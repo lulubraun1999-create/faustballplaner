@@ -10,6 +10,7 @@ import { useToast } from '@/hooks/use-toast';
 import { collection, query, orderBy } from 'firebase/firestore';
 import type { NewsArticle } from '@/app/admin/news/page';
 import { Loader2 } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 
 export default function Home() {
   const { user, isUserLoading } = useUser();
@@ -18,12 +19,33 @@ export default function Home() {
   const firestore = useFirestore();
   const { toast } = useToast();
 
+  // The query will only be created when the user is authenticated and firestore is available.
   const articlesQuery = useMemoFirebase(() => {
-    if (!firestore) return null;
+    if (!firestore || !user) return null;
     return query(collection(firestore, 'news'), orderBy('createdAt', 'desc'));
-  }, [firestore]);
+  }, [firestore, user]);
 
   const { data: articles, isLoading: isLoadingArticles } = useCollection<NewsArticle>(articlesQuery);
+
+  const handleAnonymousLogin = async () => {
+    if (auth) {
+      try {
+        const { signInAnonymously } = await import('firebase/auth');
+        await signInAnonymously(auth);
+        toast({
+          title: "Angemeldet",
+          description: "Sie sind jetzt als Gast angemeldet.",
+        });
+      } catch (error) {
+        console.error("Anonymous login failed:", error);
+        toast({
+          variant: "destructive",
+          title: "Fehler",
+          description: "Die Gast-Anmeldung ist fehlgeschlagen.",
+        });
+      }
+    }
+  };
 
   if (isUserLoading) {
     return (
@@ -45,7 +67,12 @@ export default function Home() {
             </h1>
           </section>
 
-          {isLoadingArticles ? (
+          {!user ? (
+            <div className="flex flex-col items-center justify-center h-64 gap-4 text-center">
+              <p className="text-muted-foreground">Sie müssen angemeldet sein, um die Neuigkeiten zu sehen.</p>
+              <Button onClick={handleAnonymousLogin}>Als Gast fortfahren</Button>
+            </div>
+          ) : isLoadingArticles ? (
              <div className="flex items-center justify-center h-64">
                 <Loader2 className="h-8 w-8 animate-spin text-primary" />
              </div>
