@@ -19,7 +19,7 @@ export default function TeamCashPenaltiesPage() {
             <p className="mt-4 max-w-2xl mx-auto text-lg text-muted-foreground">
               Diese Funktion wird gerade neu erstellt und ist in Kürze verfügbar.
             </p>
-            <Button asChild className="mt-4"><Link href="/admin/teamkasse">Zurück zur Teamkasse</Link></Button>
+            <Button asChild className="mt-4 bg-destructive hover:bg-destructive/90 text-destructive-foreground"><Link href="/admin/team-cash">Zurück zur Teamkasse</Link></Button>
           </section>
         </div>
       </main>
