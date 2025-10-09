@@ -14,8 +14,8 @@ import { Calendar } from '@/components/ui/calendar';
 import { de } from 'date-fns/locale';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { format } from 'date-fns';
-import { useFirestore, useUser, useDoc, useMemoFirebase } from '@/firebase';
-import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { useFirestore, useUser, useDoc, setDocumentNonBlocking, useMemoFirebase } from '@/firebase';
+import { doc, getDoc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { useForm, Controller } from 'react-hook-form';
 import { z } from 'zod';
@@ -109,18 +109,11 @@ export default function ProfilePage() {
         email: user.email,
     };
 
-    // Write to both collections
-    Promise.all([
-        setDoc(userDocRef, dataToSave, { merge: true }),
-        setDoc(memberDocRef, dataToSave, { merge: true })
-    ]).then(() => {
-      toast({ title: "Profil aktualisiert", description: "Ihre Daten wurden erfolgreich gespeichert." });
-    }).catch((e) => {
-      console.error(e);
-      toast({ variant: 'destructive', title: "Fehler", description: "Ihre Daten konnten nicht gespeichert werden." });
-    }).finally(() => {
-      startTransition(false);
-    });
+    setDocumentNonBlocking(userDocRef, dataToSave, { merge: true });
+    setDocumentNonBlocking(memberDocRef, dataToSave, { merge: true });
+
+    toast({ title: "Profil wird aktualisiert", description: "Ihre Daten werden gespeichert." });
+    startTransition(false);
   };
 
   if (isLoading) {

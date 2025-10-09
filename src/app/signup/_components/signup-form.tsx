@@ -15,9 +15,9 @@ import {
 } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { useAuth, useUser, useFirestore } from '@/firebase';
+import { useAuth, useUser, useFirestore, setDocumentNonBlocking } from '@/firebase';
 import { createUserWithEmailAndPassword, updateProfile } from 'firebase/auth';
-import { doc, setDoc } from 'firebase/firestore';
+import { doc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
 import { useState, useEffect } from 'react';
@@ -101,9 +101,13 @@ export function SignupForm() {
         adminRechte: false,
         groupIds: [],
       };
+      
+      const userDocRef = doc(firestore, 'users', newUser.uid);
+      const memberDocRef = doc(firestore, 'members', newUser.uid);
 
-      await setDoc(doc(firestore, 'users', newUser.uid), userDocData);
-      await setDoc(doc(firestore, 'members', newUser.uid), userDocData);
+      setDocumentNonBlocking(userDocRef, userDocData, { merge: true });
+      setDocumentNonBlocking(memberDocRef, userDocData, { merge: true });
+
 
       toast({
         title: 'Registrierung erfolgreich',
