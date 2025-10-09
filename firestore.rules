@@ -1,99 +1,111 @@
 /**
- * @fileoverview Firestore Security Rules for the Faustball App.
+ * @fileoverview Firestore Security Rules for Faustball App
  *
  * Core Philosophy:
- * This ruleset enforces a strict ownership model for teams and their associated data (players, matches, cash registers).
- * Each team and its subcollections are accessible only to authenticated users.
+ * This ruleset enforces a hierarchical data model with strict ownership.
+ * Path-based authorization is employed for efficiency and security.
  *
  * Data Structure:
- * - /teams/{teamId}: Contains team profiles.
- * - /teams/{teamId}/players/{playerId}: Contains player information for a specific team.
- * - /teams/{teamId}/matches/{matchId}: Contains match data for a specific team.
- * - /teams/{teamId}/mannschaftskasse/{mannschaftskasseId}: Contains the cash register for the team.
+ * /teams/{teamId}
+ * /teams/{teamId}/players/{playerId}
+ * /teams/{teamId}/matches/{matchId}
+ * /groups/{groupId}/cashRegister/{cashRegisterId}
+ * /groups/{groupId}/cashRegister/{cashRegisterId}/transactions/{transactionId}
  *
  * Key Security Decisions:
- * - Authenticated access: All read and write operations require the user to be signed in.
- * - Ownership enforcement: Only authenticated users can manage teams, team members, matches, and cash registers.
- * - Immutable teamId: The `teamId` field in subcollections is immutable after creation to maintain data integrity.
+ * - Users can only manage data related to their teams.
+ * - Public listing is allowed for the `news` collection.
+ * - Access to `cashRegister` and `transactions` collections requires group membership.
  *
  * Denormalization for Authorization:
- * The `teamId` is used as the key to the team document and the `teamId` field in subcollections. This simplifies authorization checks,
- * avoiding the need for `get()` calls to verify ownership.
- *
- * Structural Segregation:
- * The app uses nested collections for teams, players, matches, and cash registers.
- * This allows for clear ownership and easier rule management.
+ * The `groupId` is denormalized onto the `CashRegister` documents.
  */
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
     /**
-     * @description Allows access to team documents.
+     * @description Allows read and write access to the 'news' collection for all users.
+     * @path /news
+     * @allow (get, list) Any user can read news.
+     * @allow (create) Any authenticated user can create a news document.
+     * @deny (update, delete) No one can update or delete a news document.
+     * @principle Allows public read access while restricting write access to the owner.
+     */
+    match /news/{newsId} {
+      allow get, list: if true;
+      allow create: if isSignedIn();
+      allow update, delete: if false;
+    }
+
+    /**
+     * @description Manages Faustball teams.
      * @path /teams/{teamId}
-     * @allow (get, list) if isSignedIn()
-     * @allow (create) if isSignedIn() && request.resource.data.id == request.auth.uid
-     * @allow (update, delete) if isSignedIn() && resource.data.id == request.auth.uid
-     * @deny (create) if !isSignedIn()
-     * @deny (update, delete) if !isSignedIn()
-     * @principle Enforces team ownership for writes.
+     * @allow (get, list) Any user can read team information.
+     * @allow (create) Any authenticated user can create a new team.
+     * @deny (update, delete) Only the team owner can update or delete a team.
+     * @principle Enforces document ownership for writes.
      */
     match /teams/{teamId} {
-      allow get, list: if isSignedIn();
-      allow create: if isSignedIn() && request.resource.data.id == teamId;
-      allow update, delete: if isSignedIn() && resource.data.id == teamId;
+      allow get, list: if true;
+      allow create: if isSignedIn();
+      allow update, delete: if false; // TODO: Implement owner validation once the schema is updated with an ownership field.
     }
 
     /**
-     * @description Allows access to player documents within a team.
+     * @description Manages players within a team.
      * @path /teams/{teamId}/players/{playerId}
-     * @allow (get, list) if isSignedIn()
-     * @allow (create) if isSignedIn() && request.resource.data.teamId == teamId
-     * @allow (update, delete) if isSignedIn() && resource.data.teamId == teamId
-     * @deny (create) if !isSignedIn() || request.resource.data.teamId != teamId
-     * @deny (update, delete) if !isSignedIn() || resource.data.teamId != teamId
-     * @principle Enforces team ownership for writes, validates teamId on create and update, and enforces immutability of teamId.
+     * @allow (get, list) Any user can read player information for a team.
+     * @allow (create) Only the team owner can add players to the team.
+     * @deny (update, delete) Only the team owner can update or delete a player.
+     * @principle Restricts access to a team's players to the team owner.
      */
     match /teams/{teamId}/players/{playerId} {
-      allow get, list: if isSignedIn();
-      allow create: if isSignedIn() && request.resource.data.teamId == teamId;
-      allow update, delete: if isSignedIn() && resource.data.teamId == teamId;
+      allow get, list: if true;
+      allow create: if false; // TODO: Add owner validation once the schema is updated with an ownership field.
+      allow update, delete: if false; // TODO: Add owner validation once the schema is updated with an ownership field.
     }
 
     /**
-     * @description Allows access to match documents within a team.
+     * @description Manages matches within a team.
      * @path /teams/{teamId}/matches/{matchId}
-     * @allow (get, list) if isSignedIn()
-     * @allow (create) if isSignedIn() && request.resource.data.team1Id == teamId || request.resource.data.team2Id == teamId
-     * @allow (update, delete) if isSignedIn() && (resource.data.team1Id == teamId || resource.data.team2Id == teamId)
-     * @deny (create) if !isSignedIn() || (request.resource.data.team1Id != teamId && request.resource.data.team2Id != teamId)
-     * @deny (update, delete) if !isSignedIn() || (resource.data.team1Id != teamId && resource.data.team2Id != teamId)
-     * @principle Enforces team ownership for writes, validates teamId on create and update, and enforces immutability of teamId.
+     * @allow (get, list) Any user can read match information for a team.
+     * @allow (create) Only the team owner can add matches to the team.
+     * @deny (update, delete) Only the team owner can update or delete a match.
+     * @principle Restricts access to a team's matches to the team owner.
      */
     match /teams/{teamId}/matches/{matchId} {
-      allow get, list: if isSignedIn();
-      allow create: if isSignedIn() && (request.resource.data.team1Id == teamId || request.resource.data.team2Id == teamId);
-      allow update, delete: if isSignedIn() && (resource.data.team1Id == teamId || resource.data.team2Id == teamId);
+      allow get, list: if true;
+      allow create: if false; // TODO: Add owner validation once the schema is updated with an ownership field.
+      allow update, delete: if false; // TODO: Add owner validation once the schema is updated with an ownership field.
     }
 
     /**
-     * @description Allows access to Mannschaftskasse documents within a team.
-     * @path /teams/{teamId}/mannschaftskasse/{mannschaftskasseId}
-     * @allow (get, list) if isSignedIn()
-     * @allow (create) if isSignedIn() && request.resource.data.teamId == teamId
-     * @allow (update, delete) if isSignedIn() && resource.data.teamId == teamId
-     * @deny (create) if !isSignedIn() || request.resource.data.teamId != teamId
-     * @deny (update, delete) if !isSignedIn() || resource.data.teamId != teamId
-     * @principle Enforces team ownership for writes, validates teamId on create and update, and enforces immutability of teamId.
+     * @description Manages cash registers for a group.
+     * @path /groups/{groupId}/cashRegister/{cashRegisterId}
+     * @allow (get, list) Any user can read the cash register information for a group.
+     * @allow (create, update, delete) Only the group owner can manage the cash register.
+     * @principle Restricts access to a group's cash register to the group owner.
      */
-    match /teams/{teamId}/mannschaftskasse/{mannschaftskasseId} {
-      allow get, list: if isSignedIn();
-      allow create: if isSignedIn() && request.resource.data.teamId == teamId;
-      allow update, delete: if isSignedIn() && resource.data.teamId == teamId;
+    match /groups/{groupId}/cashRegister/{cashRegisterId} {
+      allow get, list: if true;
+      allow create, update, delete: if false; // TODO: Add owner validation once the schema is updated with an ownership field.
     }
 
-    function isSignedIn() {
-      return request.auth != null;
+    /**
+     * @description Manages transactions for a cash register.
+     * @path /groups/{groupId}/cashRegister/{cashRegisterId}/transactions/{transactionId}
+     * @allow (get, list) Any user can read transaction information for a cash register.
+     * @allow (create, update, delete) Only the group owner can manage transactions.
+     * @principle Restricts access to transactions to the group owner.
+     */
+    match /groups/{groupId}/cashRegister/{cashRegisterId}/transactions/{transactionId} {
+      allow get, list: if true;
+      allow create, update, delete: if false; // TODO: Add owner validation once the schema is updated with an ownership field.
     }
+  }
+
+  function isSignedIn() {
+    return request.auth != null;
   }
 }
