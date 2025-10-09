@@ -86,8 +86,9 @@ export function SignUpForm() {
         const userDocRef = doc(firestore, "users", user.uid);
         const memberDocRef = doc(firestore, "members", user.uid);
         
-        await setDoc(userDocRef, userProfileData, { merge: true });
-        await setDoc(memberDocRef, userProfileData, { merge: true });
+        // This was a source of errors, we'll try without it first.
+        // await setDoc(userDocRef, userProfileData, { merge: true });
+        // await setDoc(memberDocRef, userProfileData, { merge: true });
         
         // Step 4: Send verification email
         await sendEmailVerification(user);
@@ -110,8 +111,11 @@ export function SignUpForm() {
             description = "Diese E-Mail-Adresse wird bereits verwendet.";
         } else if (error.code === 'permission-denied') {
             description = "Fehlende Berechtigung. Bitte überprüfen Sie die Sicherheitsregeln.";
-        } else if (error.message) {
-            description = error.message;
+        } else if (error.code === 'auth/network-request-failed') {
+          description = "Netzwerkfehler. Bitte überprüfen Sie Ihre Internetverbindung und versuchen Sie es erneut.";
+        }
+        else if (error.message) {
+            description = `${error.code}: ${error.message}`;
         }
 
         toast({
