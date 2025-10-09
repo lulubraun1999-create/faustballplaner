@@ -1,4 +1,3 @@
-
 "use client";
 
 import Link from 'next/link';
@@ -71,6 +70,9 @@ export function Header() {
                 </DropdownMenuItem>
                 <DropdownMenuItem asChild>
                   <Link href="/admin/news">News</Link>
+                </DropdownMenuItem>
+                 <DropdownMenuItem asChild>
+                  <Link href="/admin/cash">Kasse</Link>
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
