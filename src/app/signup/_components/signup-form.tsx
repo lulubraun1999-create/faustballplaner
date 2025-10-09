@@ -101,13 +101,19 @@ export function SignUpForm() {
         router.push("/login");
 
       } catch (error: any) {
-        let description = "Ein unerwarteter Fehler ist aufgetreten.";
+        // Log the full error to the console for debugging
+        console.error("Registration Error:", error);
+
+        // Provide a more specific error message to the user
+        let description = `Ein unerwarteter Fehler ist aufgetreten. Fehlercode: ${error.code || 'UNKNOWN'}`;
         if (error.code === 'auth/email-already-in-use') {
             description = "Diese E-Mail-Adresse wird bereits verwendet.";
         } else if (error.code === 'permission-denied') {
             description = "Fehlende Berechtigung. Bitte überprüfen Sie die Sicherheitsregeln.";
+        } else if (error.message) {
+            description = error.message;
         }
-        console.error("Registration Error:", error.code, error.message);
+
         toast({
           variant: "destructive",
           title: "Registrierung fehlgeschlagen",
