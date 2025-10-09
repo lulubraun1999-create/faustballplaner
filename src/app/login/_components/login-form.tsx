@@ -77,7 +77,7 @@ export function LoginForm() {
     }
   };
 
-  const onSubmit = (values: z.infer<typeof formSchema>>) => {
+  const onSubmit = (values: z.infer<typeof formSchema>) => {
     startTransition(async () => {
       if (!auth) return;
       setShowResend(false);
