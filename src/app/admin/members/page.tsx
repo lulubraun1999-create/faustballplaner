@@ -1,12 +1,10 @@
 
 "use client";
 
-import React, { useMemo } from 'react';
+import React from 'react';
 import { Header } from "@/components/shared/header";
 import { Loader2 } from 'lucide-react';
 import { MembersTable } from './components/members-table';
-import { useCollection, useFirestore, useMemoFirebase } from "@/firebase";
-import { collection, orderBy, query } from "firebase/firestore";
 
 // Types based on backend.json.
 export interface MemberProfile {
@@ -33,10 +31,9 @@ export interface Group {
 
 
 export default function MembersPage() {
-    const firestore = useFirestore();
-
-    // The table component will handle fetching the members data itself.
-    const isLoading = false; // We are no longer loading groups here.
+    // The table component will handle fetching the members and groups data itself on demand.
+    // This prevents the initial broad query that was causing permission errors.
+    const isLoading = false;
 
     return (
         <div className="flex min-h-screen flex-col">
@@ -51,7 +48,6 @@ export default function MembersPage() {
                             <Loader2 className="h-8 w-8 animate-spin text-primary" />
                         </div>
                     ) : (
-                        // Pass a function to fetch groups on demand
                         <MembersTable />
                     )}
                 </div>
