@@ -1,4 +1,3 @@
-
 "use client";
 
 import Link from 'next/link';
@@ -48,9 +47,6 @@ export function Header() {
           <Button variant="ghost" asChild>
             <Link href="/">Aktuelles</Link>
           </Button>
-           <Button variant="ghost" asChild>
-            <Link href="/surveys">Umfragen</Link>
-          </Button>
           <Button variant="ghost" asChild>
             <Link href="/chat">Chat</Link>
           </Button>
@@ -65,9 +61,6 @@ export function Header() {
               <DropdownMenuContent>
                 <DropdownMenuItem asChild>
                   <Link href="/admin/groups">Gruppen</Link>
-                </DropdownMenuItem>
-                 <DropdownMenuItem asChild>
-                  <Link href="/admin/surveys">Umfragen</Link>
                 </DropdownMenuItem>
                 <DropdownMenuItem asChild>
                   <Link href="/admin/appointments">Termine</Link>
