@@ -71,7 +71,7 @@ export function SignupForm() {
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
     startTransition(true);
 
-    if (values.registrationCode !== 'faustball') {
+    if (values.registrationCode !== 'Ellaisttoll') {
         toast({
             variant: 'destructive',
             title: 'Registrierung fehlgeschlagen',
