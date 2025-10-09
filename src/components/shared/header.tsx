@@ -1,3 +1,4 @@
+
 "use client";
 
 import Link from 'next/link';
@@ -10,7 +11,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Button } from '@/components/ui/button';
 import { ThemeToggle } from '../theme-toggle';
-import { ChevronDown, LogOut, User as UserIcon, Vote, BarChart } from 'lucide-react';
+import { ChevronDown, LogOut, User as UserIcon } from 'lucide-react';
 import { useAuth, useDoc, useFirestore, useMemoFirebase, useUser } from '@/firebase';
 import { useRouter } from 'next/navigation';
 import { doc } from 'firebase/firestore';
@@ -73,9 +74,6 @@ export function Header() {
                 </DropdownMenuItem>
                 <DropdownMenuItem asChild>
                   <Link href="/admin/team-cash">Mannschaftskasse</Link>
-                </DropdownMenuItem>
-                 <DropdownMenuItem asChild>
-                  <Link href="/admin/usage">Nutzung</Link>
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
