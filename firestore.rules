@@ -1,46 +1,73 @@
+
 rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
+  
+    // Helper function to get user data
+    function getUserData(userId) {
+      return get(/databases/$(database)/documents/users/$(userId)).data;
+    }
 
+    // Helper function to check for admin rights
+    function isAdmin(userId) {
+      return getUserData(userId).adminRechte == true;
+    }
+
+    // Helper function to check if user is in a specific group
+    function isMemberOf(userId, groupId) {
+      return groupId in getUserData(userId).groupIds;
+    }
+    
+    // Helper function to check if user is a trainer of a specific group
+    function isTrainerOf(userId, groupId) {
+        return getUserData(userId).rolle == 'trainer' && isMemberOf(userId, groupId);
+    }
+
+    // Users can read/write their own data.
+    // Members can only be read via specific filtered queries, not listed by everyone.
     match /users/{userId} {
-      allow read, write: if request.auth != null && request.auth.uid == userId;
+      allow read, update: if request.auth != null && request.auth.uid == userId;
+      allow create: if request.auth != null;
     }
-
+    
     match /members/{memberId} {
-      allow get: if request.auth != null;
-      allow list: if request.auth != null && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.adminRechte == true;
-      allow write: if request.auth != null && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.adminRechte == true;
+        allow read, update: if request.auth != null && (isAdmin(request.auth.uid) || request.auth.uid == memberId);
+        // Allow listing only for admins or via specific queries by group
+        allow list: if request.auth != null && isAdmin(request.auth.uid);
     }
 
+    // Admins can read/write groups.
+    // Users can only read groups they are a member of via a specific query.
     match /groups/{groupId} {
-      allow read: if request.auth != null; // Allows get and list
-      allow write: if request.auth != null && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.adminRechte == true;
+      allow read, write: if request.auth != null && isAdmin(request.auth.uid);
+      allow list: if request.auth != null && isAdmin(request.auth.uid);
     }
 
-    match /news/{newsId} {
+    // Admins can manage all news.
+    // Authenticated users can read news.
+    match /news/{articleId} {
       allow read: if request.auth != null;
-      allow write: if request.auth != null && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.adminRechte == true;
+      allow write: if request.auth != null && isAdmin(request.auth.uid);
     }
-
+    
+    // Team Cash Transactions
     match /team-cash-transactions/{transactionId} {
-      allow list: if request.auth != null && (
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.adminRechte == true ||
-        (request.query.filters.size() > 0 && request.query.filters[0].value in get(/databases/$(database)/documents/users/$(request.auth.uid)).data.groupIds)
-      );
-      allow get: if request.auth != null && (
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.adminRechte == true ||
-        get(/databases/$(database)/documents/team-cash-transactions/$(transactionId)).data.groupId in get(/databases/$(database)/documents/users/$(request.auth.uid)).data.groupIds
-      );
-      allow write: if request.auth != null && (
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.adminRechte == true ||
-        (request.resource.data.groupId in get(/databases/$(database)/documents/users/$(request.auth.uid)).data.groupIds)
-      );
-    }
+        // CREATE: Admins or trainers of that group can create.
+        allow create: if request.auth != null && (
+            isAdmin(request.auth.uid) || isTrainerOf(request.auth.uid, request.resource.data.groupId)
+        );
 
-    match /penalties/{penaltyId} {
-      allow read: if request.auth != null;
-      allow write: if request.auth != null && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.adminRechte == true;
+        // READ, UPDATE, DELETE: Admins or trainers of that group.
+        allow read, update, delete: if request.auth != null && (
+            isAdmin(request.auth.uid) || isTrainerOf(request.auth.uid, get(/databases/$(database)/documents/team-cash-transactions/$(transactionId)).data.groupId)
+        );
+        
+        // LIST: Allowed if the query is filtered by a groupId the user is a member of.
+        allow list: if request.auth != null && (
+            isAdmin(request.auth.uid) ||
+            (request.query.getRules().get("filters")[0][2] in getUserData(request.auth.uid).groupIds)
+        );
     }
   }
 }
