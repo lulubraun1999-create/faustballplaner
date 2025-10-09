@@ -7,12 +7,7 @@ import { getFirestore, Firestore } from 'firebase/firestore';
 
 // This ensures that Firebase is initialized only once.
 // The config is passed directly to ensure the correct API key is used.
-let app: FirebaseApp;
-if (!getApps().length) {
-  app = initializeApp(firebaseConfig);
-} else {
-  app = getApp();
-}
+const app: FirebaseApp = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
 
 const firestore: Firestore = getFirestore(app);
 const auth: Auth = getAuth(app);
