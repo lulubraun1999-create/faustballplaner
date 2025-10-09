@@ -1,3 +1,4 @@
+
 "use client";
 
 import { Button } from "@/components/ui/button";
@@ -40,6 +41,7 @@ export default function PasswordPage() {
   
   const onSubmit = (values: z.infer<typeof passwordSchema>) => {
     startTransition(async () => {
+      if (!auth) return;
       const user = auth.currentUser;
       if (!user || !user.email) return;
 
@@ -55,7 +57,7 @@ export default function PasswordPage() {
         });
         
         await auth.signOut();
-        router.push("/login");
+        router.push("/");
 
       } catch (error: any) {
         let description = "Ein Fehler ist aufgetreten.";

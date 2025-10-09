@@ -1,3 +1,4 @@
+
 "use client";
 
 import Link from "next/link";
@@ -30,24 +31,16 @@ export default function ProfileLayout({ children }: { children: React.ReactNode 
   const { toast } = useToast();
 
   useEffect(() => {
-     if (!isUserLoading) {
-      if (!user) {
-        router.push('/login');
-      } else if (!user.emailVerified) {
-        auth.signOut();
-        toast({
-          variant: 'destructive',
-          title: 'E-Mail nicht verifiziert',
-          description: 'Bitte bestätigen Sie Ihre E-Mail-Adresse, um sich anzumelden.',
-        });
-        router.push('/login');
+     if (!isUserLoading && !user) {
+        router.push('/');
       }
-    }
-  }, [user, isUserLoading, router, auth, toast]);
+  }, [user, isUserLoading, router]);
 
   const handleLogout = async () => {
-    await auth.signOut();
-    router.push('/login');
+    if (auth) {
+        await auth.signOut();
+    }
+    router.push('/');
   };
 
   const handleDeleteAccount = async () => {
@@ -58,7 +51,7 @@ export default function ProfileLayout({ children }: { children: React.ReactNode 
           title: 'Konto gelöscht',
           description: 'Ihr Konto wurde erfolgreich und dauerhaft gelöscht.',
         });
-        router.push('/login');
+        router.push('/');
       } catch (error: any) {
         console.error("Error deleting account:", error);
         // Handle re-authentication if necessary, e.g., by showing a modal
@@ -71,7 +64,7 @@ export default function ProfileLayout({ children }: { children: React.ReactNode 
     }
   };
   
-  if (isUserLoading || !user || !user.emailVerified) {
+  if (isUserLoading || !user) {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center">
         <div className="h-16 w-16 animate-spin rounded-full border-4 border-dashed border-primary"></div>

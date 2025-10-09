@@ -18,22 +18,6 @@ export default function Home() {
   const firestore = useFirestore();
   const { toast } = useToast();
 
-  useEffect(() => {
-    if (!isUserLoading) {
-      if (!user) {
-        router.push('/login');
-      } else if (!user.emailVerified) {
-        // Don't sign out, just redirect. The login page will handle messaging.
-        toast({
-          variant: 'destructive',
-          title: 'E-Mail nicht verifiziert',
-          description: 'Bitte bestätigen Sie Ihre E-Mail-Adresse, um sich anzumelden.',
-        });
-        router.push('/login');
-      }
-    }
-  }, [user, isUserLoading, router, toast]);
-
   const articlesQuery = useMemoFirebase(() => {
     if (!firestore) return null;
     return query(collection(firestore, 'news'), orderBy('createdAt', 'desc'));
@@ -41,7 +25,7 @@ export default function Home() {
 
   const { data: articles, isLoading: isLoadingArticles } = useCollection<NewsArticle>(articlesQuery);
 
-  if (isUserLoading || !user || !user.emailVerified) {
+  if (isUserLoading) {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center">
         <div className="h-16 w-16 animate-spin rounded-full border-4 border-dashed border-primary"></div>
