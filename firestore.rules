@@ -2,6 +2,7 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
+
     match /users/{userId} {
       allow read, write: if request.auth != null && request.auth.uid == userId;
     }
@@ -18,14 +19,8 @@ service cloud.firestore {
       allow write: if request.auth != null && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.adminRechte == true;
     }
     match /team-cash-transactions/{transactionId} {
-      // Allow any authenticated user to read any transaction
       allow read: if request.auth != null;
-
-      // Allow write only if user is an admin or a member of the group
-      allow write: if request.auth != null && (
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.adminRechte == true ||
-        request.resource.data.groupId in get(/databases/$(database)/documents/users/$(request.auth.uid)).data.groupIds
-      );
+      allow write: if request.auth != null && (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.adminRechte == true || request.resource.data.groupId in get(/databases/$(database)/documents/users/$(request.auth.uid)).data.groupIds);
     }
     match /penalties/{penaltyId} {
         allow read, write: if request.auth != null && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.adminRechte == true;
