@@ -49,9 +49,6 @@ export function Header() {
             <Link href="/">Aktuelles</Link>
           </Button>
           <Button variant="ghost" asChild>
-            <Link href="/surveys">Umfragen</Link>
-          </Button>
-          <Button variant="ghost" asChild>
             <Link href="/chat">Chat</Link>
           </Button>
           {hasAdminRights && (
@@ -75,7 +72,7 @@ export function Header() {
                 <DropdownMenuItem asChild>
                   <Link href="/admin/news">News</Link>
                 </DropdownMenuItem>
-                <DropdownMenuItem asChild>
+                 <DropdownMenuItem asChild>
                   <Link href="/admin/team-cash">Mannschaftskasse</Link>
                 </DropdownMenuItem>
               </DropdownMenuContent>
