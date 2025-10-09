@@ -12,12 +12,6 @@ export default function SignUpPage() {
           </p>
         </div>
         <SignUpForm />
-        <div className="mt-4 text-center text-sm">
-          Bereits ein Konto?{" "}
-          <Link href="/login" className="underline">
-            Login
-          </Link>
-        </div>
       </div>
     </div>
   )
