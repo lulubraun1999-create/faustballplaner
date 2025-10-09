@@ -72,9 +72,6 @@ export function Header() {
                 <DropdownMenuItem asChild>
                   <Link href="/admin/news">News</Link>
                 </DropdownMenuItem>
-                 <DropdownMenuItem asChild>
-                  <Link href="/admin/team-cash">Mannschaftskasse</Link>
-                </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
           )}
