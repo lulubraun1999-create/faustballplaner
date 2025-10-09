@@ -82,8 +82,7 @@ export function SignUpForm() {
           description: "Bitte überprüfen Sie Ihre E-Mails, um Ihr Konto zu bestätigen. Sie werden zum Login weitergeleitet.",
         });
 
-        // Step 4: Sign the user out until they verify their email
-        await auth.signOut();
+        // Step 4: Redirect to login. DO NOT sign out.
         router.push("/login");
 
       } catch (error: any) {

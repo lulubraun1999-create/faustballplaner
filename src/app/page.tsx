@@ -23,7 +23,7 @@ export default function Home() {
       if (!user) {
         router.push('/login');
       } else if (!user.emailVerified) {
-        auth.signOut();
+        // Don't sign out, just redirect. The login page will handle messaging.
         toast({
           variant: 'destructive',
           title: 'E-Mail nicht verifiziert',
@@ -32,7 +32,7 @@ export default function Home() {
         router.push('/login');
       }
     }
-  }, [user, isUserLoading, router, auth, toast]);
+  }, [user, isUserLoading, router, toast]);
 
   const articlesQuery = useMemoFirebase(() => {
     if (!firestore) return null;
