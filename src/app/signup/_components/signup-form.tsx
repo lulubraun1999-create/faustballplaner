@@ -20,13 +20,10 @@ import {
   sendEmailVerification,
   updateProfile,
 } from "firebase/auth";
-import { doc } from 'firebase/firestore';
 import { useRouter } from "next/navigation";
 import { useToast } from "@/hooks/use-toast";
 import React from "react";
 import { Loader2 } from "lucide-react";
-import { initiateEmailSignUp } from "@/firebase/non-blocking-login";
-import { setDocumentNonBlocking } from "@/firebase/non-blocking-updates";
 
 const formSchema = z.object({
   vorname: z.string().min(2, { message: "Vorname muss mindestens 2 Zeichen lang sein." }),
@@ -40,7 +37,6 @@ const formSchema = z.object({
 
 export function SignUpForm() {
   const auth = useAuth();
-  const firestore = useFirestore();
   const router = useRouter();
   const { toast } = useToast();
   const [isPending, startTransition] = React.useTransition();
@@ -58,10 +54,9 @@ export function SignUpForm() {
 
   const onSubmit = (values: z.infer<typeof formSchema>) => {
     startTransition(async () => {
-      if (!auth || !firestore) return;
+      if (!auth) return;
       try {
-        // This will create the user but also sign them in.
-        // onAuthStateChanged will pick up the new user.
+        // Step 1: Create user with Firebase Auth
         const userCredential = await createUserWithEmailAndPassword(
           auth,
           values.email,
@@ -69,42 +64,25 @@ export function SignUpForm() {
         );
         const user = userCredential.user;
 
+        // Step 2: Update the auth profile with the display name
         const displayName = `${values.vorname} ${values.nachname}`;
-        // Update the auth profile
         await updateProfile(user, {
           displayName: displayName,
         });
         
-        // Send verification email
+        // Step 3: Send verification email
         await sendEmailVerification(user);
 
-        // --- Create user profiles in Firestore (non-blocking) ---
-        const userDocRef = doc(firestore, "users", user.uid);
-        const memberDocRef = doc(firestore, "members", user.uid);
-
-        const profileData = {
-          id: user.uid,
-          email: values.email,
-          vorname: values.vorname,
-          nachname: values.nachname,
-          name: displayName,
-          rolle: 'spieler', // Default role
-          adminRechte: false,
-          groupIds: [],
-        };
-        
-        // Use non-blocking writes
-        setDocumentNonBlocking(userDocRef, profileData, { merge: true });
-        setDocumentNonBlocking(memberDocRef, profileData, { merge: true });
-        
-        // --- ---
+        // NOTE: All Firestore writes have been removed from this process.
+        // The user profile document will be created lazily when the user
+        // first logs in and visits their profile page.
 
         toast({
           title: "Registrierung erfolgreich",
           description: "Bitte überprüfen Sie Ihre E-Mails, um Ihr Konto zu bestätigen. Sie werden zum Login weitergeleitet.",
         });
 
-        // Sign the user out until they verify their email
+        // Step 4: Sign the user out until they verify their email
         await auth.signOut();
         router.push("/login");
 
@@ -112,8 +90,6 @@ export function SignUpForm() {
         let description = "Ein unerwarteter Fehler ist aufgetreten.";
         if (error.code === 'auth/email-already-in-use') {
             description = "Diese E-Mail-Adresse wird bereits verwendet.";
-        } else if (error.code === 'permission-denied') {
-            description = "Berechtigungsfehler beim Erstellen des Benutzerprofils. Bitte kontaktieren Sie den Administrator.";
         }
         console.error("Registration Error:", error);
         toast({
