@@ -70,16 +70,16 @@ export function SignupForm() {
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
     startTransition(true);
     
-    const expectedCode = 'ellaistoll';
-    if (values.registrationCode.trim().toLowerCase() !== expectedCode) {
-        toast({
-            variant: 'destructive',
-            title: 'Registrierung fehlgeschlagen',
-            description: 'Der Registrierungscode ist falsch.',
-        });
-        startTransition(false);
-        return;
-    }
+    // const expectedCode = 'ellaistoll';
+    // if (values.registrationCode.trim().toLowerCase() !== expectedCode) {
+    //     toast({
+    //         variant: 'destructive',
+    //         title: 'Registrierung fehlgeschlagen',
+    //         description: 'Der Registrierungscode ist falsch.',
+    //     });
+    //     startTransition(false);
+    //     return;
+    // }
 
     try {
       const app = initializeApp(firebaseConfig);
