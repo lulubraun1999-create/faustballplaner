@@ -15,7 +15,7 @@ import {
 } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { useAuth, useUser, useFirestore, setDocumentNonBlocking } from '@/firebase';
+import { useUser, initializeFirebase, setDocumentNonBlocking } from '@/firebase';
 import { createUserWithEmailAndPassword, updateProfile } from 'firebase/auth';
 import { doc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
@@ -39,8 +39,6 @@ const formSchema = z
   });
 
 export function SignupForm() {
-  const auth = useAuth();
-  const firestore = useFirestore();
   const { user, isUserLoading } = useUser();
   const { toast } = useToast();
   const router = useRouter();
@@ -76,6 +74,19 @@ export function SignupForm() {
             variant: 'destructive',
             title: 'Registrierung fehlgeschlagen',
             description: 'Der Registrierungscode ist falsch.',
+        });
+        startTransition(false);
+        return;
+    }
+
+    // Direct initialization to bypass provider issues
+    const { auth, firestore } = initializeFirebase();
+
+    if (!auth || !firestore) {
+        toast({
+            variant: 'destructive',
+            title: 'Registrierung fehlgeschlagen',
+            description: 'Firebase konnte nicht initialisiert werden. Bitte versuchen Sie es später erneut.',
         });
         startTransition(false);
         return;
@@ -117,12 +128,24 @@ export function SignupForm() {
       router.push('/');
     } catch (error: any) {
       let description = 'Ein unerwarteter Fehler ist aufgetreten.';
-      if (error.code === 'auth/email-already-in-use') {
-        description = 'Diese E-Mail-Adresse wird bereits verwendet.';
-      } else if (error.code === 'auth/invalid-api-key' || error.code === 'auth/api-key-not-valid') {
-        description = 'Der API-Schlüssel ist ungültig. Bitte kontaktieren Sie den Support.';
-      } else {
-        console.error('Registration Error:', error);
+      switch (error.code) {
+          case 'auth/email-already-in-use':
+            description = 'Diese E-Mail-Adresse wird bereits verwendet.';
+            break;
+          case 'auth/invalid-email':
+            description = 'Die angegebene E-Mail-Adresse ist ungültig.';
+            break;
+          case 'auth/weak-password':
+            description = 'Das Passwort ist zu schwach.';
+            break;
+          case 'auth/invalid-api-key':
+          case 'auth/api-key-not-valid':
+             description = 'Der API-Schlüssel ist ungültig. Bitte kontaktieren Sie den Support.';
+             break;
+          default:
+            console.error('Registration Error:', error);
+            description = `Ein Fehler ist aufgetreten: ${error.message}`;
+            break;
       }
       toast({
         variant: 'destructive',

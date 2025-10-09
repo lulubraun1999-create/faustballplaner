@@ -1,3 +1,4 @@
+
 {
   "entities": {
     "Team": {
@@ -137,92 +138,25 @@
     ]
   },
   "firestore": {
-    "structure": [
-      {
-        "path": "/users/{userId}",
-        "definition": {
-          "entityName": "UserProfile",
-          "schema": {
-            "$ref": "#/backend/entities/UserProfile"
-          },
-          "description": "User profiles, accessible only to the user.  Uses path-based ownership.",
-          "params": [
-            {
-              "name": "userId",
-              "description": "The unique identifier of the user."
-            }
-          ]
-        }
-      },
-      {
-        "path": "/teams/{teamId}",
-        "definition": {
-          "entityName": "Team",
-          "schema": {
-            "$ref": "#/backend/entities/Team"
-          },
-          "description": "Teams data. Publicly readable, but write access should be restricted to admins.",
-          "params": [
-            {
-              "name": "teamId",
-              "description": "The unique identifier of the team."
-            }
-          ]
-        }
-      },
-      {
-        "path": "/teams/{teamId}/players/{playerId}",
-        "definition": {
-          "entityName": "Player",
-          "schema": {
-            "$ref": "#/backend/entities/Player"
-          },
-          "description": "Players associated with a team. Requires the 'teamId' to ensure data integrity and easy querying.",
-          "params": [
-            {
-              "name": "teamId",
-              "description": "The unique identifier of the team."
-            },
-            {
-              "name": "playerId",
-              "description": "The unique identifier of the player."
-            }
-          ]
-        }
-      },
-      {
-        "path": "/matches/{matchId}",
-        "definition": {
-          "entityName": "Match",
-          "schema": {
-            "$ref": "#/backend/entities/Match"
-          },
-          "description": "Match data. Publicly readable, but write access should be restricted to admins.",
-          "params": [
-            {
-              "name": "matchId",
-              "description": "The unique identifier of the match."
-            }
-          ]
-        }
-      },
-      {
-        "path": "/roles_admin/{userId}",
-        "definition": {
-          "entityName": "roles_admin",
-          "schema": {
-            "$ref": "#/backend/entities/UserProfile"
-          },
-          "description": "Admin roles. Existence of a document grants admin access.",
-          "params": [
-            {
-              "name": "userId",
-              "description": "The unique identifier of the user."
-            }
-          ]
-        }
-      }
-    ],
-    "reasoning": "The Firestore structure is designed to support the Faustball Insights application, focusing on team rankings, match results, player profiles, and statistical analysis. Authorization Independence is achieved through path-based ownership for user profiles and teams, and denormalization of team membership for managing players.  Hierarchical paths are employed to establish clear ownership and relationships between entities. This supports the QAPs by enabling secure list operations based on user roles and team memberships, and avoids filtering in rules.  The structure ensures the integrity of ownership and data relationships between Teams, Matches and Players."
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/UserProfile" },
+      "description": "User profiles, accessible only to the user. Uses path-based ownership."
+    },
+    "/teams/{teamId}": {
+      "schema": { "$ref": "#/entities/Team" },
+      "description": "Teams data. Publicly readable, but write access should be restricted to admins."
+    },
+    "/teams/{teamId}/players/{playerId}": {
+      "schema": { "$ref": "#/entities/Player" },
+      "description": "Players associated with a team. Requires the 'teamId' to ensure data integrity and easy querying."
+    },
+    "/matches/{matchId}": {
+      "schema": { "$ref": "#/entities/Match" },
+      "description": "Match data. Publicly readable, but write access should be restricted to admins."
+    },
+    "/roles_admin/{userId}": {
+      "schema": { "$ref": "#/entities/UserProfile" },
+      "description": "Admin roles. Existence of a document grants admin access."
+    }
   }
 }
