@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useFirestore, useDoc, useMemoFirebase } from "@/firebase";
+import { useFirestore, useDoc } from "@/firebase";
 import { useParams } from "next/navigation";
 import { doc } from "firebase/firestore";
 import { NewsArticle } from "@/app/admin/news/page";
@@ -11,14 +11,14 @@ import Image from "next/image";
 import { format } from 'date-fns';
 import { de } from 'date-fns/locale';
 import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from "@/components/ui/carousel";
-import React from "react";
+import React, { useMemo } from "react";
 
 export default function ArticleDetailPage() {
   const firestore = useFirestore();
   const params = useParams();
   const articleId = params.id as string;
 
-  const articleRef = useMemoFirebase(() => {
+  const articleRef = useMemo(() => {
     if (!firestore || !articleId) return null;
     return doc(firestore, 'news', articleId);
   }, [firestore, articleId]);

@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -14,7 +14,7 @@ import { Calendar } from '@/components/ui/calendar';
 import { de } from 'date-fns/locale';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { format } from 'date-fns';
-import { useFirestore, useUser, useDoc, useMemoFirebase } from '@/firebase';
+import { useFirestore, useUser, useDoc } from '@/firebase';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { useForm, Controller } from 'react-hook-form';
@@ -44,7 +44,7 @@ export default function ProfilePage() {
   const [isPending, startTransition] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
-  const userProfileRef = useMemoFirebase(() => {
+  const userProfileRef = useMemo(() => {
     if (!firestore || !user) return null;
     return doc(firestore, 'users', user.uid);
   }, [firestore, user]);

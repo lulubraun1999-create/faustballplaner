@@ -12,7 +12,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { Button } from '@/components/ui/button';
 import { MoreHorizontal, Trash2, Edit, Loader2, Search } from 'lucide-react';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
-import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
+import { useFirestore, useCollection } from '@/firebase';
 import { collection, query, where, writeBatch, doc, orderBy } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { EditMemberModal } from './edit-member-modal';
@@ -33,7 +33,7 @@ export function MembersTable() {
     const [activeQuery, setActiveQuery] = useState<any>(null);
     const [hasSearched, setHasSearched] = useState(false);
 
-    const membersQuery = useMemoFirebase(() => {
+    const membersQuery = useMemo(() => {
         if (!firestore || !activeQuery) return null;
         return activeQuery;
     }, [firestore, activeQuery]);
@@ -41,7 +41,7 @@ export function MembersTable() {
     const { data: users, isLoading } = useCollection<MemberProfile>(membersQuery);
     
     // Fetch all groups only when needed
-    const groupsQuery = useMemoFirebase(() => {
+    const groupsQuery = useMemo(() => {
         if (!firestore) return null;
         // Only fetch if search has been initiated to prevent initial load error
         return hasSearched ? query(collection(firestore, 'groups'), orderBy('name')) : null;
