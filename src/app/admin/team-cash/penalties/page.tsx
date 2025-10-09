@@ -150,7 +150,7 @@ export default function PenaltiesPage() {
                         <div className="space-y-8">
                              <div className="max-w-xs space-y-2">
                                 <Label htmlFor="group-select">Mannschaft</Label>
-                                <Select onValueChange={setSelectedSubGroupId} value={selectedSubGroupId || ''}>
+                                <Select onValueChange={(value) => setSelectedSubGroupId(value)} value={selectedSubGroupId || ''}>
                                     <SelectTrigger id="group-select"><SelectValue placeholder="Mannschaft auswählen..." /></SelectTrigger>
                                     <SelectContent>
                                         {subGroups.map(group => (
@@ -167,7 +167,7 @@ export default function PenaltiesPage() {
                                         <CardDescription>Definieren Sie hier die Strafen für diese Mannschaft.</CardDescription>
                                     </CardHeader>
                                     <CardContent>
-                                    {pageIsLoading && !penaltiesForSelectedGroup ? (
+                                    {isLoadingPenalties ? (
                                         <div className="flex items-center justify-center h-24">
                                             <Loader2 className="h-6 w-6 animate-spin text-primary" />
                                         </div>
