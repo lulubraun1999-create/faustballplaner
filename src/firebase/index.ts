@@ -12,22 +12,8 @@ export function initializeFirebase() {
     return getSdks(getApp());
   }
 
-  // In a real Firebase App Hosting environment, initializeApp() would work without args.
-  // In the development environment (like this one), we must use the config object.
-  // We can differentiate based on a well-known env var.
-  let firebaseApp;
-  if (process.env.NEXT_PUBLIC_FIREBASE_EMULATOR_HOST) {
-     // This logic is for when you are running the app locally with emulators
-     firebaseApp = initializeApp(firebaseConfig);
-  } else {
-    try {
-      // This is for the deployed App Hosting environment
-      firebaseApp = initializeApp();
-    } catch (e) {
-      // This is the fallback for the Studio development environment
-      firebaseApp = initializeApp(firebaseConfig);
-    }
-  }
+  // Always initialize with the explicit config to ensure the correct API key is used.
+  const firebaseApp = initializeApp(firebaseConfig);
   
   return getSdks(firebaseApp);
 }
