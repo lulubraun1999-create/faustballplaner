@@ -71,7 +71,8 @@ export function SignupForm() {
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
     startTransition(true);
     
-    if (values.registrationCode !== 'Ellaistoll') {
+    const expectedCode = 'ellaistoll';
+    if (values.registrationCode.trim().toLowerCase() !== expectedCode) {
         toast({
             variant: 'destructive',
             title: 'Registrierung fehlgeschlagen',
