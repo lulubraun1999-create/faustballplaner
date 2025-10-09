@@ -1,4 +1,3 @@
-
 {
   "entities": {
     "Team": {
@@ -13,7 +12,11 @@
         },
         "name": {
           "type": "string",
-          "description": "The name of the team."
+          "description": "Name of the team."
+        },
+        "description": {
+          "type": "string",
+          "description": "A brief description of the team."
         },
         "ranking": {
           "type": "number",
@@ -22,8 +25,7 @@
       },
       "required": [
         "id",
-        "name",
-        "ranking"
+        "name"
       ]
     },
     "Match": {
@@ -46,15 +48,15 @@
         },
         "team1Score": {
           "type": "number",
-          "description": "The score of team 1 in the match."
+          "description": "Score of Team 1 in the match."
         },
         "team2Score": {
           "type": "number",
-          "description": "The score of team 2 in the match."
+          "description": "Score of Team 2 in the match."
         },
-        "matchDateTime": {
+        "matchDate": {
           "type": "string",
-          "description": "The date and time the match was played.",
+          "description": "Date and time of the match.",
           "format": "date-time"
         }
       },
@@ -64,7 +66,7 @@
         "team2Id",
         "team1Score",
         "team2Score",
-        "matchDateTime"
+        "matchDate"
       ]
     },
     "Player": {
@@ -79,93 +81,53 @@
         },
         "teamId": {
           "type": "string",
-          "description": "Reference to the Team the Player plays for. (Relationship: Team 1:N Player)"
+          "description": "Reference to the Team the player belongs to. (Relationship: Team 1:N Player)"
         },
         "name": {
           "type": "string",
-          "description": "The name of the player."
+          "description": "Name of the player."
         },
         "position": {
           "type": "string",
-          "description": "The playing position of the player."
+          "description": "The player's position in the team."
+        },
+        "dateOfBirth": {
+          "type": "string",
+          "description": "The player's date of birth",
+          "format": "date"
         }
       },
       "required": [
         "id",
         "teamId",
-        "name",
-        "position"
-      ]
-    },
-    "CashRegister": {
-      "title": "Cash Register",
-      "description": "Represents the team's cash register.",
-      "type": "object",
-      "properties": {
-        "balance": {
-          "type": "number",
-          "description": "The current balance."
-        },
-        "groupId": {
-          "type": "string",
-          "description": "The ID of the group this cash register belongs to."
-        }
-      },
-      "required": [
-        "balance",
-        "groupId"
-      ]
-    },
-    "Transaction": {
-      "title": "Transaction",
-      "description": "Represents a single transaction in a cash register.",
-      "type": "object",
-      "properties": {
-        "type": {
-          "type": "string",
-          "enum": [
-            "income",
-            "expense"
-          ],
-          "description": "The type of transaction."
-        },
-        "description": {
-          "type": "string",
-          "description": "A description of the transaction."
-        },
-        "amount": {
-          "type": "number",
-          "description": "The amount of the transaction."
-        },
-        "date": {
-          "type": "string",
-          "format": "date-time",
-          "description": "The date and time of the transaction."
-        },
-        "memberId": {
-          "type": "string",
-          "description": "The ID of the member related to the transaction."
-        }
-      },
-      "required": [
-        "type",
-        "description",
-        "amount",
-        "date",
-        "memberId"
+        "name"
       ]
     },
     "UserProfile": {
       "$schema": "http://json-schema.org/draft-07/schema#",
-      "title": "User Profile",
-      "description": "Represents a user's profile information.",
+      "title": "UserProfile",
       "type": "object",
+      "description": "Represents a user profile for the application.",
       "properties": {
-        "registrationCode": {
+        "id": {
           "type": "string",
-          "description": "The code required for registration."
+          "description": "Unique identifier for the user profile."
+        },
+        "username": {
+          "type": "string",
+          "description": "Username of the user."
+        },
+        "email": {
+          "type": "string",
+          "description": "Email address of the user.",
+          "format": "email"
         }
-      }
+      },
+      "required": [
+        "id",
+        "username",
+        "email"
+      ]
     }
   },
   "auth": {
@@ -177,13 +139,29 @@
   "firestore": {
     "structure": [
       {
+        "path": "/users/{userId}",
+        "definition": {
+          "entityName": "UserProfile",
+          "schema": {
+            "$ref": "#/backend/entities/UserProfile"
+          },
+          "description": "User profiles, accessible only to the user.  Uses path-based ownership.",
+          "params": [
+            {
+              "name": "userId",
+              "description": "The unique identifier of the user."
+            }
+          ]
+        }
+      },
+      {
         "path": "/teams/{teamId}",
         "definition": {
           "entityName": "Team",
           "schema": {
             "$ref": "#/backend/entities/Team"
           },
-          "description": "Collection of Faustball teams. Each document represents a team.",
+          "description": "Teams data. Publicly readable, but write access should be restricted to admins.",
           "params": [
             {
               "name": "teamId",
@@ -199,7 +177,7 @@
           "schema": {
             "$ref": "#/backend/entities/Player"
           },
-          "description": "Subcollection of players for a specific team. Each document represents a player in that team.",
+          "description": "Players associated with a team. Requires the 'teamId' to ensure data integrity and easy querying.",
           "params": [
             {
               "name": "teamId",
@@ -213,18 +191,14 @@
         }
       },
       {
-        "path": "/teams/{teamId}/matches/{matchId}",
+        "path": "/matches/{matchId}",
         "definition": {
           "entityName": "Match",
           "schema": {
             "$ref": "#/backend/entities/Match"
           },
-          "description": "Subcollection of matches for a specific team. Each document represents a match the team played in.",
+          "description": "Match data. Publicly readable, but write access should be restricted to admins.",
           "params": [
-            {
-              "name": "teamId",
-              "description": "The unique identifier of the team."
-            },
             {
               "name": "matchId",
               "description": "The unique identifier of the match."
@@ -233,50 +207,22 @@
         }
       },
       {
-        "path": "/groups/{groupId}/cashRegister/{cashRegisterId}",
+        "path": "/roles_admin/{userId}",
         "definition": {
-          "entityName": "CashRegister",
+          "entityName": "roles_admin",
           "schema": {
-            "$ref": "#/backend/entities/CashRegister"
+            "$ref": "#/backend/entities/UserProfile"
           },
-          "description": "Represents the cash register for a specific group.",
+          "description": "Admin roles. Existence of a document grants admin access.",
           "params": [
             {
-              "name": "groupId",
-              "description": "The unique identifier for the group."
-            },
-            {
-              "name": "cashRegisterId",
-              "description": "The unique identifier for the cash register."
-            }
-          ]
-        }
-      },
-      {
-        "path": "/groups/{groupId}/cashRegister/{cashRegisterId}/transactions/{transactionId}",
-        "definition": {
-          "entityName": "Transaction",
-          "schema": {
-            "$ref": "#/backend/entities/Transaction"
-          },
-          "description": "Represents the transactions for a specific cash register.",
-          "params": [
-            {
-              "name": "groupId",
-              "description": "The unique identifier for the group."
-            },
-            {
-              "name": "cashRegisterId",
-              "description": "The unique identifier for the cash register."
-            },
-            {
-              "name": "transactionId",
-              "description": "The unique identifier for the transaction."
+              "name": "userId",
+              "description": "The unique identifier of the user."
             }
           ]
         }
       }
     ],
-    "reasoning": "The Firestore structure is designed to manage Faustball teams, matches, players, and team cash registers. The structure prioritizes Authorization Independence by avoiding `get()` calls in security rules. This is achieved by using path-based ownership for user-related data, enabling atomic operations and simplifying security rule management.\n\n**Authorization Independence:**\nPath-based ownership (`/teams/{teamId}/...`) establishes clear ownership, making security rules simple and efficient without needing to retrieve parent document data.\n\n**Structural Segregation:**\nThe structure uses dedicated collections for each entity (teams, matches, players, cash registers), ensuring that all documents within a collection share the same security requirements.\n\n**Access Modeling:**\n-   **Team Data:** Uses a top-level `/teams` collection. Each team has a subcollection for players and a subcollection for matches.\n-   **Player Data:** Players are stored within the `/teams/{teamId}/players` collection, clearly associating them with their respective teams.\n-   **Match Data:** Matches are stored within the `/teams/{teamId}/matches` collection, associating them with a team.\n-   **Mannschaftskasse (Cash Register):** Each group has a dedicated subcollection for its cash register at `/groups/{groupId}/cashRegister`. Transactions are stored in a subcollection within each cash register document. This ensures data is properly segmented and access can be controlled on a per-group basis.\n\n**QAPs (Rules are not Filters):**\nThe structure supports secure `list` operations by ensuring that security rules can be applied directly to collection reads, without needing to filter data based on document content. Path-based ownership enables secure listing of resources associated with a specific team or group.\n\n**Invariants:**\nThe structure supports data integrity by enforcing clear ownership and relationships between entities. For example, a `Player` document's `teamId` field always points to an existing `Team` document."
+    "reasoning": "The Firestore structure is designed to support the Faustball Insights application, focusing on team rankings, match results, player profiles, and statistical analysis. Authorization Independence is achieved through path-based ownership for user profiles and teams, and denormalization of team membership for managing players.  Hierarchical paths are employed to establish clear ownership and relationships between entities. This supports the QAPs by enabling secure list operations based on user roles and team memberships, and avoids filtering in rules.  The structure ensures the integrity of ownership and data relationships between Teams, Matches and Players."
   }
 }

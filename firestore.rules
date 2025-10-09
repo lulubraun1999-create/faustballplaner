@@ -1,97 +1,135 @@
 /**
- * @fileOverview Firestore Security Rules for Faustball App
+ * @file Firestore Security Rules for Faustball Insights Application
  *
- * @description This ruleset enforces a hierarchical data model centered around teams, players, matches, and cash registers.
- * Data access is primarily controlled through path-based ownership, ensuring that users can only access resources within their designated team or group.
- *
- * @dataStructure
- * - `/teams/{teamId}`:  Top-level collection of teams.
- * - `/teams/{teamId}/players/{playerId}`: Subcollection of players belonging to a team.
- * - `/teams/{teamId}/matches/{matchId}`: Subcollection of matches associated with a team.
- * - `/groups/{groupId}/cashRegister/{cashRegisterId}`: Cash register for a specific group.
- * - `/groups/{groupId}/cashRegister/{cashRegisterId}/transactions/{transactionId}`: Transactions for a specific cash register.
- *
- * @keySecurityDecisions
- * - Strict ownership model: Resources are accessed based on their location within the hierarchical structure.
- * - No global admin roles are defined.
- * - Denormalization:  The `teamId` field in the `Player` and `Match` entities ensures efficient authorization without requiring extra reads.
- * - Read-only collections are not explicitly defined; access is controlled based on the user's relationship to the team or group.
+ * @core_philosophy This ruleset prioritizes secure data access based on user roles and team memberships.
+ *  It enforces a strict user-ownership model for user profiles and restricts write access to team and match data to admins only.
+ * @data_structure The data is organized hierarchically with user profiles stored under `/users/{userId}`,
+ *  teams under `/teams/{teamId}`, players under `/teams/{teamId}/players/{playerId}`, and matches under `/matches/{matchId}`.
+ * @key_security_decisions
+ *  - User profiles are only accessible to the owning user.
+ *  - Listing of user profiles is disallowed.
+ *  - Teams and Matches are publicly readable, but only admins can modify them.
+ *  - The existence of a document in the `/roles_admin/{userId}` collection grants admin privileges.
+ * @denormalization_for_authorization  N/A
+ * @structural_segregation N/A
  */
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
     /**
-     * @description Controls access to the 'teams' collection.
+     * @description Secure access to user profile data. Only the user can read/write their own profile.
+     * @path /users/{userId}
+     * @allow (create) - User with UID 'user_abc' can create their profile at /users/user_abc if the 'id' field matches.
+     * @allow (get, update, delete) - User with UID 'user_abc' can access their profile at /users/user_abc.
+     * @deny (create) - User with UID 'user_xyz' cannot create a profile at /users/user_abc.
+     * @deny (get, update, delete) - User with UID 'user_xyz' cannot access the profile at /users/user_abc.
+     * @principle Enforces document ownership for all operations.
+     */
+    match /users/{userId} {
+      function isSignedIn() {
+        return request.auth != null;
+      }
+      function isOwner(userId) {
+        return request.auth.uid == userId;
+      }
+      function isExistingOwner(userId) {
+        return isSignedIn() && isOwner(userId) && existsAfter(/databases/$(database)/documents/users/$(userId));
+      }
+
+      allow get: if isSignedIn() && isOwner(userId);
+      allow list: if false; // Listing user profiles is not permitted.
+      allow create: if isSignedIn() && isOwner(userId) && request.resource.data.id == request.auth.uid;
+      allow update: if isExistingOwner(userId); //Removed id check, open up data shape
+      allow delete: if isExistingOwner(userId);
+    }
+
+    /**
+     * @description Rules for managing team data. Publicly readable, but only admins can modify.
      * @path /teams/{teamId}
-     * @allow get, list: if true;
-     * @allow create: if false;
-     * @allow update: if false;
-     * @allow delete: if false;
-     * @principle Public read, owner-only writes with missing owner field
+     * @allow (get, list) - Any user (signed in or not) can read team data.
+     * @allow (create, update, delete) - Only admins can create, update, or delete team data.
+     * @deny (create, update, delete) - Non-admins cannot modify team data.
+     * @principle Restricts write access based on admin role.
      */
     match /teams/{teamId} {
+      function isAdmin() {
+        return isSignedIn() && exists(/databases/$(database)/documents/roles_admin/$(request.auth.uid));
+      }
+      function isSignedIn() {
+        return request.auth != null;
+      }
+
       allow get, list: if true;
-      allow create, update, delete: if false; // TODO: Add owner validation once the schema is updated with an ownership field.
-      // CRITICAL: Cannot implement owner-only writes. The 'Team' entity is missing an 'ownerId' or 'authorId' field.
+      allow create: if isSignedIn() && isAdmin();
+      allow update: if isSignedIn() && isAdmin(); //Removed resource != null
+      allow delete: if isSignedIn() && isAdmin(); //Removed resource != null
     }
 
     /**
-     * @description Controls access to the 'players' subcollection for a specific team.
+     * @description Rules for managing player data within a team. Only admins can create, update, or delete players.
      * @path /teams/{teamId}/players/{playerId}
-     * @allow get: if true;
-     * @allow list: if true;
-     * @allow create: if true;
-     * @allow update: if true;
-     * @allow delete: if true;
-     * @principle Path-based access control with implicit ownership via teamId
+     * @allow (get, list) - Any user can read player data.
+     * @allow (create, update, delete) - Only admins can modify player data.
+     * @deny (create, update, delete) - Non-admins cannot modify player data.
+     * @principle Restricts write access based on admin role, enforcing data integrity.
      */
     match /teams/{teamId}/players/{playerId} {
+       function isAdmin() {
+        return isSignedIn() && exists(/databases/$(database)/documents/roles_admin/$(request.auth.uid));
+      }
+      function isSignedIn() {
+        return request.auth != null;
+      }
+
       allow get, list: if true;
-      allow create, update, delete: if true;
+      allow create: if isSignedIn() && isAdmin();
+      allow update: if isSignedIn() && isAdmin(); //Removed resource != null
+      allow delete: if isSignedIn() && isAdmin(); //Removed resource != null
     }
 
     /**
-     * @description Controls access to the 'matches' subcollection for a specific team.
-     * @path /teams/{teamId}/matches/{matchId}
-     * @allow get: if true;
-     * @allow list: if true;
-     * @allow create: if true;
-     * @allow update: if true;
-     * @allow delete: if true;
-     * @principle Path-based access control with implicit ownership via teamId
+     * @description Rules for managing match data. Publicly readable, but only admins can modify.
+     * @path /matches/{matchId}
+     * @allow (get, list) - Any user can read match data.
+     * @allow (create, update, delete) - Only admins can create, update, or delete match data.
+     * @deny (create, update, delete) - Non-admins cannot modify match data.
+     * @principle Restricts write access based on admin role.
      */
-    match /teams/{teamId}/matches/{matchId} {
+    match /matches/{matchId} {
+      function isAdmin() {
+        return isSignedIn() && exists(/databases/$(database)/documents/roles_admin/$(request.auth.uid));
+      }
+      function isSignedIn() {
+        return request.auth != null;
+      }
+
       allow get, list: if true;
-      allow create, update, delete: if true;
+      allow create: if isSignedIn() && isAdmin();
+      allow update: if isSignedIn() && isAdmin(); //Removed resource != null
+      allow delete: if isSignedIn() && isAdmin(); //Removed resource != null
     }
 
     /**
-     * @description Controls access to the 'cashRegister' subcollection for a specific group.
-     * @path /groups/{groupId}/cashRegister/{cashRegisterId}
-     * @allow get: if true;
-     * @allow list: if true;
-     * @allow create: if true;
-     * @allow update: if true;
-     * @allow delete: if true;
+     * @description Rules for determining admin roles.  Existence of a document grants admin access.
+     * @path /roles_admin/{userId}
      */
-    match /groups/{groupId}/cashRegister/{cashRegisterId} {
-      allow get, list: if true;
-      allow create, update, delete: if true;
-    }
+    match /roles_admin/{userId} {
+        function isSignedIn() {
+        return request.auth != null;
+      }
+      function isOwner(userId) {
+        return request.auth.uid == userId;
+      }
+     function isExistingOwner(userId) {
+        return isSignedIn() && isOwner(userId) && existsAfter(/databases/$(database)/documents/roles_admin/$(userId));
+      }
 
-    /**
-     * @description Controls access to the 'transactions' subcollection for a specific cash register.
-     * @path /groups/{groupId}/cashRegister/{cashRegisterId}/transactions/{transactionId}
-     * @allow get: if true;
-     * @allow list: if if true;
-     * @allow create: if true;
-     * @allow update: if true;
-     * @allow delete: if true;
-     */
-    match /groups/{groupId}/cashRegister/{cashRegisterId}/transactions/{transactionId} {
-      allow get, list: if true;
-      allow create, update, delete: if true;
+      allow get: if isSignedIn() && isOwner(userId);
+      allow list: if false; // Listing roles_admin profiles is not permitted.
+      allow create: if isSignedIn() && isOwner(userId) && request.resource.data.id == request.auth.uid;
+      allow update: if isExistingOwner(userId); //Enforce immutability of the id, removed id check to open up data shape
+      allow delete: if isExistingOwner(userId);
     }
   }
 }
