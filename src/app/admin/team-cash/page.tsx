@@ -160,7 +160,7 @@ export default function TeamCashPage() {
     const firestore = useFirestore();
     const [isAdding, setIsAdding] = useState(false);
     const [editingTransaction, setEditingTransaction] = useState<TeamCashTransaction | null>(null);
-    const [selectedSubGroupId, setSelectedSubGroupId] = useState<string>('');
+    const [selectedSubGroupId, setSelectedSubGroupId] = useState<string | null>(null);
 
     // Fetch only groups at the top level
     const groupsQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'groups')) : null, [firestore]);
@@ -170,7 +170,7 @@ export default function TeamCashPage() {
     
     // Effect to set the initial selected group once subGroups are loaded
     useEffect(() => {
-        if (!selectedSubGroupId && subGroups.length > 0) {
+        if (selectedSubGroupId === null && subGroups.length > 0) {
             setSelectedSubGroupId(subGroups[0].id);
         }
     }, [subGroups, selectedSubGroupId]);
