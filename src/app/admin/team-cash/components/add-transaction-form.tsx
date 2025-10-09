@@ -215,7 +215,7 @@ export function AddTransactionForm({ onClose, subGroups, initialGroupId }: AddTr
                                 name="penaltyId"
                                 control={control}
                                 render={({ field }) => (
-                                    <Select onValueChange={field.onChange} value={field.value} disabled={!selectedGroupId || (penaltiesForGroup && penaltiesForGroup.length === 0)}>
+                                    <Select onValueChange={field.onChange} value={field.value} disabled={!selectedGroupId || isLoadingPenalties}>
                                     <SelectTrigger id="penaltyId">
                                         <SelectValue placeholder={!selectedGroupId ? "Zuerst Mannschaft wählen" : (isLoadingPenalties) ? "Strafen laden..." : (penaltiesForGroup && penaltiesForGroup.length > 0) ? "Strafe auswählen..." : "Keine Strafen für diese Gruppe"} />
                                     </SelectTrigger>
@@ -285,7 +285,7 @@ export function AddTransactionForm({ onClose, subGroups, initialGroupId }: AddTr
                             name="memberId"
                             control={control}
                             render={({ field }) => (
-                                <Select onValueChange={field.onChange} value={field.value} disabled={!selectedGroupId || isLoadingMembers || (sortedMembersForGroup && sortedMembersForGroup.length === 0)}>
+                                <Select onValueChange={field.onChange} value={field.value} disabled={!selectedGroupId || isLoadingMembers}>
                                 <SelectTrigger id="memberId"><SelectValue placeholder={!selectedGroupId ? "Zuerst Mannschaft wählen" : isLoadingMembers ? "Mitglieder laden..." : (sortedMembersForGroup && sortedMembersForGroup.length > 0) ? "Mitglied auswählen..." : "Keine Mitglieder für diese Gruppe"} /></SelectTrigger>
                                 <SelectContent>
                                     <SelectItem value="none">Kein Mitglied</SelectItem>
@@ -309,6 +309,8 @@ export function AddTransactionForm({ onClose, subGroups, initialGroupId }: AddTr
     </div>
   );
 }
+
+    
 
     
 
