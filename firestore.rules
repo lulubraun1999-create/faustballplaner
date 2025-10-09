@@ -2,18 +2,19 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
+
     match /users/{userId} {
       allow read, write: if request.auth != null && request.auth.uid == userId;
     }
 
     match /members/{memberId} {
+      allow get: if request.auth != null;
       allow list: if request.auth != null && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.adminRechte == true;
-      allow read: if request.auth != null;
       allow write: if request.auth != null && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.adminRechte == true;
     }
 
     match /groups/{groupId} {
-      allow read: if request.auth != null;
+      allow read: if request.auth != null; // Allows get and list
       allow write: if request.auth != null && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.adminRechte == true;
     }
 
@@ -23,35 +24,23 @@ service cloud.firestore {
     }
 
     match /team-cash-transactions/{transactionId} {
-      // Allow admin to do anything
-      allow read, write: if request.auth != null && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.adminRechte == true;
-
-      // Rules for non-admins
-      allow list: if request.auth != null 
-                  && request.query.resource.data.groupId in get(/databases/$(database)/documents/users/$(request.auth.uid)).data.groupIds;
-                  
-      allow get: if request.auth != null 
-                 && resource.data.groupId in get(/databases/$(database)/documents/users/$(request.auth.uid)).data.groupIds;
-                 
-      allow create: if request.auth != null 
-                    && request.resource.data.groupId in get(/databases/$(database)/documents/users/$(request.auth.uid)).data.groupIds;
-
-      allow update: if request.auth != null 
-                    && resource.data.groupId in get(/databases/$(database)/documents/users/$(request.auth.uid)).data.groupIds;
-                    
-      allow delete: if request.auth != null 
-                    && resource.data.groupId in get(/databases/$(database)/documents/users/$(request.auth.uid)).data.groupIds;
+      allow list: if request.auth != null && (
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.adminRechte == true ||
+        (request.query.filters.size() > 0 && request.query.filters[0].value in get(/databases/$(database)/documents/users/$(request.auth.uid)).data.groupIds)
+      );
+      allow get: if request.auth != null && (
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.adminRechte == true ||
+        get(/databases/$(database)/documents/team-cash-transactions/$(transactionId)).data.groupId in get(/databases/$(database)/documents/users/$(request.auth.uid)).data.groupIds
+      );
+      allow write: if request.auth != null && (
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.adminRechte == true ||
+        (request.resource.data.groupId in get(/databases/$(database)/documents/users/$(request.auth.uid)).data.groupIds)
+      );
     }
 
     match /penalties/{penaltyId} {
-        allow read, write: if request.auth != null && (
-          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.adminRechte == true ||
-          resource.data.groupId in get(/databases/$(database)/documents/users/$(request.auth.uid)).data.groupIds
-        );
-        allow list: if request.auth != null && (
-          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.adminRechte == true ||
-          request.query.resource.data.groupId in get(/databases/$(database)/documents/users/$(request.auth.uid)).data.groupIds
-        );
+      allow read: if request.auth != null;
+      allow write: if request.auth != null && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.adminRechte == true;
     }
   }
 }
