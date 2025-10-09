@@ -35,21 +35,9 @@ export function MembersTable({ allGroups }: MembersTableProps) {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [selectedMember, setSelectedMember] = useState<MemberProfile | null>(null);
 
-    // Initial query to fetch all members, set immediately.
-    const initialQuery = useMemoFirebase(() => {
-        if (!firestore) return null;
-        return query(collection(firestore, 'members'));
-    }, [firestore]);
-
-    const [activeQuery, setActiveQuery] = useState<any>(initialQuery);
-    
-    // When firestore is ready, set the active query to the initial query
-    useEffect(() => {
-        if (initialQuery && !activeQuery) {
-            setActiveQuery(initialQuery);
-        }
-    }, [initialQuery, activeQuery]);
-
+    // Initial query is now null, so no data is fetched on component mount
+    const [activeQuery, setActiveQuery] = useState<any>(null);
+    const [hasSearched, setHasSearched] = useState(false);
 
     const membersQuery = useMemoFirebase(() => {
         if (!firestore || !activeQuery) return null;
@@ -69,6 +57,7 @@ export function MembersTable({ allGroups }: MembersTableProps) {
     const handleSearch = () => {
         if (!firestore) return;
 
+        setHasSearched(true);
         let q: any;
         const filters: any[] = [];
         
@@ -238,7 +227,7 @@ export function MembersTable({ allGroups }: MembersTableProps) {
                                     <Loader2 className="mx-auto h-8 w-8 animate-spin text-primary" />
                                 </TableCell>
                             </TableRow>
-                        ) : processedUsers.length > 0 ? processedUsers.map(user => {
+                        ) : hasSearched && processedUsers.length > 0 ? processedUsers.map(user => {
                             const userGroupNames = getGroupNames(user.groupIds);
                             const displayGroupString = getDisplayGroupNames(user.groupIds);
 
@@ -313,7 +302,7 @@ export function MembersTable({ allGroups }: MembersTableProps) {
                          )}) : (
                             <TableRow>
                                 <TableCell colSpan={10} className="h-24 text-center">
-                                    {activeQuery ? "Keine Mitglieder für die ausgewählten Filter gefunden." : "Mitglieder werden geladen..."}
+                                    {hasSearched ? "Keine Mitglieder für die ausgewählten Filter gefunden." : "Bitte verwenden Sie die Filter und klicken Sie auf 'Suchen', um Mitglieder anzuzeigen."}
                                 </TableCell>
                             </TableRow>
                         )}
@@ -324,6 +313,8 @@ export function MembersTable({ allGroups }: MembersTableProps) {
         </>
     );
 }
+
+    
 
     
 
