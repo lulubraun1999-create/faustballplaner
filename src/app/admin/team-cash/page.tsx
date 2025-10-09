@@ -56,7 +56,7 @@ export default function TeamCashPage() {
         }
     }, [accessibleGroups, selectedGroupId]);
 
-    const isLoading = isLoadingUserProfile || (userGroupIds.length > 0 && isLoadingGroups);
+    const isLoading = isLoadingUserProfile || (groupsQuery && isLoadingGroups);
     const canEdit = hasAdminRights || (isTrainer && userGroupIds.includes(selectedGroupId || ''));
 
     return (
@@ -66,11 +66,13 @@ export default function TeamCashPage() {
                 <div className="container mx-auto px-4 py-8 md:py-12">
                     <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 gap-4">
                         <h1 className="text-3xl font-bold tracking-tight">Teamkasse</h1>
-                        <div className="flex items-center gap-2">
-                             <Button variant="outline" asChild>
-                                <Link href="/admin/team-cash/penalties">Strafenkatalog</Link>
-                            </Button>
-                        </div>
+                        { hasAdminRights && (
+                            <div className="flex items-center gap-2">
+                                 <Button variant="outline" asChild>
+                                    <Link href="/admin/team-cash/penalties">Strafenkatalog</Link>
+                                </Button>
+                            </div>
+                        )}
                     </div>
 
                     {isLoading ? (
