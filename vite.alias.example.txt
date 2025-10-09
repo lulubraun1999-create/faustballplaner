@@ -1,0 +1,7 @@
+﻿Füge in deine vite.config.js (oben import, unten resolve.alias) ein:
+
+import path from "path";
+export default defineConfig({
+  // ...
+  resolve: { alias: { "@": path.resolve(__dirname, "src") } }
+});

@@ -1,0 +1,3 @@
+﻿Stelle sicher:
+- index.css:  @tailwind base; @tailwind components; @tailwind utilities;
+- tailwind.config.js -> content: ["./index.html","./src/**/*.{js,jsx,ts,tsx}"]
