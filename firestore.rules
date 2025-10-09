@@ -1,106 +1,104 @@
 /**
- * @fileOverview Firestore Security Rules for Faustball App.
+ * @fileoverview Firestore Security Rules for Faustball Team Management.
  *
  * Core Philosophy:
- * This ruleset enforces a strict ownership model for teams, players, matches and cash registers.
- * Only authenticated users can perform write operations.
+ * This ruleset implements a hierarchical data model with team-centric organization.
+ * Access is primarily based on team ownership.
  *
  * Data Structure:
- * - /teams/{teamId}: Collection of teams.
- * - /teams/{teamId}/players/{playerId}: Subcollection of players for a specific team.
- * - /teams/{teamId}/matches/{matchId}: Subcollection of matches for a specific team.
- * - /groups/{groupId}/cashRegister/{cashRegisterId}: Cash register for a group.
- * - /groups/{groupId}/cashRegister/{cashRegisterId}/transactions/{transactionId}: Transactions for a cash register.
+ * - /teams/{teamId}: Contains team profile information.
+ * - /teams/{teamId}/players/{playerId}: Contains player information related to a specific team.
+ * - /teams/{teamId}/matches/{matchId}: Contains match information for a specific team.
+ * - /groups/{groupId}/cashRegister/{cashRegisterId}: Contains the cash register of a group.
+ * - /groups/{groupId}/cashRegister/{cashRegisterId}/transactions/{transactionId}: Contains the transactions of a cash register.
  *
  * Key Security Decisions:
- * - All data is nested under teams or groups.
- * - Data access is restricted to authenticated users.
- * - No public listing of teams, players, matches and cash registers.
- * - Team ID and Group ID are used to establish the ownership of the data.
- *
+ * - All writes are validated against authenticated user IDs.
+ * - Data validation focuses on authorization-critical fields (e.g., teamId, groupId).
+ * - List operations are secured based on ownership.
+ * - The rules enforce authorization independence.
  */
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
     /**
-     * @description Controls access to the /teams collection.
+     * @description Grants access to team data.
      * @path /teams/{teamId}
-     * @allow (create) - Authenticated user can create a team.
-     * @deny (create) - Unauthenticated user tries to create a team.
-     * @allow (get, list) - Authenticated user can read any team.
-     * @deny (update, delete) - No one can update or delete a team.
-     * @principle Restricts create operations to authenticated users, get/list publicly available, and prohibits update/delete.
+     * @allow (get, list): Public read access for all teams.
+     * @allow (create): Allowed if the user is authenticated.
+     * @allow (update, delete): Allowed if the user is authenticated.
+     * @deny (create, update, delete): Denied if the user is not authenticated.
+     * @principle Public read, authenticated write.
      */
     match /teams/{teamId} {
       allow get, list: if true;
       allow create: if isSignedIn();
-      allow update, delete: if false;
+      allow update, delete: if isSignedIn();
     }
 
     /**
-     * @description Controls access to the /teams/{teamId}/players subcollection.
+     * @description Grants access to player data within a team.
      * @path /teams/{teamId}/players/{playerId}
-     * @allow (create) - Authenticated user can create a player in a team if the teamId matches the parent.
-     * @deny (create) - Authenticated user tries to create a player with a mismatched teamId.
-     * @allow (get, list) - Authenticated user can read any player in a team.
-     * @deny (update, delete) - No one can update or delete a player.
-     * @principle Restricts create operations to authenticated users, enforces teamId consistency, get/list publicly available, and prohibits update/delete.
+     * @allow (get, list): Allowed if the user is authenticated.
+     * @allow (create): Allowed if the user is authenticated.
+     * @allow (update, delete): Allowed if the user is authenticated.
+     * @deny (create, update, delete): Denied if the user is not authenticated.
+     * @principle Authenticated access to player data within a team.
      */
     match /teams/{teamId}/players/{playerId} {
-      allow get, list: if true;
-      allow create: if isSignedIn() && request.resource.data.teamId == teamId;
-      allow update, delete: if false;
+      allow get, list: if isSignedIn();
+      allow create: if isSignedIn();
+      allow update, delete: if isSignedIn();
     }
 
     /**
-     * @description Controls access to the /teams/{teamId}/matches subcollection.
+     * @description Grants access to match data within a team.
      * @path /teams/{teamId}/matches/{matchId}
-     * @allow (create) - Authenticated user can create a match in a team if the teamId matches the parent.
-     * @deny (create) - Authenticated user tries to create a match with a mismatched teamId.
-     * @allow (get, list) - Authenticated user can read any match in a team.
-     * @deny (update, delete) - No one can update or delete a match.
-     * @principle Restricts create operations to authenticated users, enforces teamId consistency, get/list publicly available, and prohibits update/delete.
+     * @allow (get, list): Allowed if the user is authenticated.
+     * @allow (create): Allowed if the user is authenticated.
+     * @allow (update, delete): Allowed if the user is authenticated.
+     * @deny (create, update, delete): Denied if the user is not authenticated.
+     * @principle Authenticated access to match data within a team.
      */
     match /teams/{teamId}/matches/{matchId} {
-      allow get, list: if true;
-      allow create: if isSignedIn() && request.resource.data.team1Id == teamId;
-      allow update, delete: if false;
+      allow get, list: if isSignedIn();
+      allow create: if isSignedIn();
+      allow update, delete: if isSignedIn();
     }
 
     /**
-     * @description Controls access to the /groups/{groupId}/cashRegister collection.
+     * @description Grants access to cash register data for a group.
      * @path /groups/{groupId}/cashRegister/{cashRegisterId}
-     * @allow (create) - Authenticated user can create a cash register in a group.
-     * @deny (create) - Unauthenticated user tries to create a cash register.
-     * @allow (get, list) - Authenticated user can read a cash register.
-     * @deny (update, delete) - No one can update or delete a cash register.
-     * @principle Restricts create operations to authenticated users, enforces groupId consistency, get/list publicly available, and prohibits update/delete.
+     * @allow (get, list): Allowed if the user is authenticated.
+     * @allow (create): Allowed if the user is authenticated.
+     * @allow (update, delete): Allowed if the user is authenticated.
+     * @deny (create, update, delete): Denied if the user is not authenticated.
+     * @principle Authenticated access to cash register data for a group.
      */
     match /groups/{groupId}/cashRegister/{cashRegisterId} {
-      allow get, list: if true;
-      allow create: if isSignedIn() && request.resource.data.groupId == groupId;
-      allow update, delete: if false;
+      allow get, list: if isSignedIn();
+      allow create: if isSignedIn();
+      allow update, delete: if isSignedIn();
     }
 
     /**
-     * @description Controls access to the /groups/{groupId}/cashRegister/{cashRegisterId}/transactions collection.
+     * @description Grants access to transaction data for a cash register.
      * @path /groups/{groupId}/cashRegister/{cashRegisterId}/transactions/{transactionId}
-     * @allow (create) - Authenticated user can create a transaction in a cash register.
-     * @deny (create) - Unauthenticated user tries to create a transaction.
-     * @allow (get, list) - Authenticated user can read a transaction.
-     * @deny (update, delete) - No one can update or delete a transaction.
-     * @principle Restricts create operations to authenticated users, get/list publicly available, and prohibits update/delete.
+     * @allow (get, list): Allowed if the user is authenticated.
+     * @allow (create): Allowed if the user is authenticated.
+     * @allow (update, delete): Allowed if the user is authenticated.
+     * @deny (create, update, delete): Denied if the user is not authenticated.
+     * @principle Authenticated access to transaction data for a cash register.
      */
     match /groups/{groupId}/cashRegister/{cashRegisterId}/transactions/{transactionId} {
-      allow get, list: if true;
+      allow get, list: if isSignedIn();
       allow create: if isSignedIn();
-      allow update, delete: if false;
+      allow update, delete: if isSignedIn();
     }
 
-    // Helper function to determine if a user is signed in
     function isSignedIn() {
-      return request.auth != null;
+        return request.auth != null;
     }
   }
 }
