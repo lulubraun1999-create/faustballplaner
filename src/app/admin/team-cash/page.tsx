@@ -4,8 +4,8 @@
 import { useState, useMemo, FC } from 'react';
 import Link from 'next/link';
 import { Header } from "@/components/shared/header";
-import { useFirestore, useCollection, useMemoFirebase, deleteDocumentNonBlocking, useUser } from "@/firebase";
-import { collection, query, where } from "firebase/firestore";
+import { useFirestore, useCollection, useMemoFirebase, deleteDocumentNonBlocking, useUser, useDoc } from "@/firebase";
+import { collection, query, where, doc, orderBy } from "firebase/firestore";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Loader2, MoreHorizontal, PlusCircle, Trash2, Edit, BookMarked, Wallet } from "lucide-react";
@@ -31,6 +31,7 @@ export interface TeamCashTransaction {
     memberName?: string;
     createdAt: any;
     createdBy: string;
+    archived?: boolean;
 }
 
 interface TransactionViewProps {
@@ -142,12 +143,12 @@ export default function TeamCashPage() {
     const [selectedSubGroupId, setSelectedSubGroupId] = useState<string | null>(null);
     
     // Step 1: Get the current user's profile to find their groupIds
-    const userProfileQuery = useMemoFirebase(() => {
+    const userProfileRef = useMemoFirebase(() => {
         if (!firestore || !user) return null;
         return doc(firestore, 'users', user.uid);
     }, [firestore, user]);
-    const { data: userProfile, isLoading: isLoadingUserProfile } = useCollection(userProfileQuery);
-    const userGroupIds = useMemo(() => userProfile?.[0]?.groupIds || [], [userProfile]);
+    const { data: userProfile, isLoading: isLoadingUserProfile } = useDoc<any>(userProfileRef);
+    const userGroupIds = useMemo(() => userProfile?.groupIds || [], [userProfile]);
 
     // Step 2: Fetch only the groups the user is a member of.
     const userGroupsQuery = useMemoFirebase(() => {
@@ -267,5 +268,7 @@ export default function TeamCashPage() {
         </div>
     );
 }
+
+    
 
     
