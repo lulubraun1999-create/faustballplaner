@@ -4,7 +4,7 @@
 import { useState, useMemo, useEffect, FC } from 'react';
 import Link from 'next/link';
 import { Header } from "@/components/shared/header";
-import { useFirestore, useCollection, useMemoFirebase, deleteDocumentNonBlocking } from "@/firebase";
+import { useFirestore, useCollection, useMemoFirebase, deleteDocumentNonBlocking, useUser } from "@/firebase";
 import { collection, query, orderBy, doc, where } from "firebase/firestore";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -158,28 +158,35 @@ const TransactionView: FC<TransactionViewProps> = ({ subGroupId, subGroupName, o
 // =========================================================================
 export default function TeamCashPage() {
     const firestore = useFirestore();
+    const { user } = useUser();
     const [isAdding, setIsAdding] = useState(false);
     const [editingTransaction, setEditingTransaction] = useState<TeamCashTransaction | null>(null);
     const [selectedSubGroupId, setSelectedSubGroupId] = useState<string | null>(null);
 
-    // Fetch only groups at the top level
-    const groupsQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'groups')) : null, [firestore]);
-    const { data: allGroups, isLoading: isLoadingGroups } = useCollection<Group>(groupsQuery);
+    // Fetch only groups where the current user is a member
+    const userGroupsQuery = useMemoFirebase(() => {
+        if (!firestore || !user) return null;
+        return query(collection(firestore, 'groups'), where('id', 'in', user.providerData.map(p => p.uid)));
+    }, [firestore, user]);
+    const { data: userGroups, isLoading: isLoadingUserGroups } = useCollection<Group>(userGroupsQuery);
+
+    const allGroupsQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'groups')) : null, [firestore]);
+    const { data: allGroups, isLoading: isLoadingAllGroups } = useCollection<Group>(allGroupsQuery);
 
     const subGroups = useMemo(() => allGroups?.filter(g => g.parentGroupId).sort((a, b) => a.name.localeCompare(b.name)) || [], [allGroups]);
     
-    // Effect to set the initial selected group once subGroups are loaded
-    useEffect(() => {
-        if (selectedSubGroupId === null && subGroups.length > 0) {
-            setSelectedSubGroupId(subGroups[0].id);
-        }
-    }, [subGroups, selectedSubGroupId]);
+    // This effect is removed to prevent auto-selection
+    // useEffect(() => {
+    //     if (selectedSubGroupId === null && subGroups.length > 0) {
+    //         setSelectedSubGroupId(subGroups[0].id);
+    //     }
+    // }, [subGroups, selectedSubGroupId]);
 
     const handleEditTransaction = (transaction: TeamCashTransaction) => {
         setEditingTransaction(transaction);
     };
 
-    const isLoading = isLoadingGroups;
+    const isLoading = isLoadingAllGroups;
     const selectedSubGroupName = useMemo(() => subGroups.find(g => g.id === selectedSubGroupId)?.name || '', [subGroups, selectedSubGroupId]);
 
 
@@ -249,7 +256,7 @@ export default function TeamCashPage() {
                                         onEdit={handleEditTransaction}
                                     />
                                 ) : (
-                                    <div className="flex items-center justify-center h-48 text-muted-foreground">
+                                    <div className="flex items-center justify-center h-48 text-muted-foreground border rounded-lg bg-muted/50">
                                         Bitte wählen Sie eine Mannschaft aus, um die Transaktionen anzuzeigen.
                                     </div>
                                 )}
