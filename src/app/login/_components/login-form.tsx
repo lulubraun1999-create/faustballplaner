@@ -17,11 +17,12 @@ import { Input } from "@/components/ui/input";
 import { useAuth, useUser } from "@/firebase";
 import {
   signInWithEmailAndPassword,
+  sendEmailVerification,
 } from "firebase/auth";
 import { useRouter } from "next/navigation";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2 } from "lucide-react";
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
 
 const formSchema = z.object({
   email: z.string().email({ message: "Ungültige E-Mail-Adresse." }),
@@ -34,6 +35,8 @@ export function LoginForm() {
   const { toast } = useToast();
   const { user, isUserLoading } = useUser();
   const [isPending, startTransition] = React.useTransition();
+  const [showResend, setShowResend] = useState(false);
+  const [emailForResend, setEmailForResend] = useState("");
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -49,19 +52,48 @@ export function LoginForm() {
     }
   }, [user, isUserLoading, router]);
 
-  const onSubmit = (values: z.infer<typeof formSchema>) => {
+  const handleResendVerification = async () => {
+    if (!auth?.currentUser) {
+        toast({
+            variant: "destructive",
+            title: "Fehler",
+            description: "Es wurde kein Benutzer gefunden, für den eine E-Mail gesendet werden kann. Bitte versuchen Sie sich erneut anzumelden."
+        });
+        return;
+    }
+    try {
+        await sendEmailVerification(auth.currentUser);
+        toast({
+            title: "E-Mail gesendet",
+            description: "Eine neue Bestätigungs-E-Mail wurde an Ihre Adresse gesendet. Bitte überprüfen Sie Ihr Postfach."
+        });
+        setShowResend(false);
+    } catch (error) {
+        toast({
+            variant: "destructive",
+            title: "Senden fehlgeschlagen",
+            description: "Die Bestätigungs-E-Mail konnte nicht gesendet werden. Bitte versuchen Sie es später erneut."
+        });
+    }
+  };
+
+  const onSubmit = (values: z.infer<typeof formSchema>>) => {
     startTransition(async () => {
       if (!auth) return;
+      setShowResend(false);
       try {
         const userCredential = await signInWithEmailAndPassword(auth, values.email, values.password);
         
         if (!userCredential.user.emailVerified) {
-          await auth.signOut();
           toast({
             variant: "destructive",
             title: "Anmeldung fehlgeschlagen",
             description: "Bitte bestätigen Sie zuerst Ihre E-Mail-Adresse.",
           });
+          setEmailForResend(values.email);
+          setShowResend(true);
+          // Don't sign out immediately, so we can resend verification
+          // await auth.signOut();
           return;
         }
 
@@ -125,6 +157,14 @@ export function LoginForm() {
           {isPending ? <Loader2 className="animate-spin" /> : "Login"}
         </Button>
       </form>
+      {showResend && (
+        <div className="mt-4 text-center">
+            <p className="text-sm text-muted-foreground mb-2">Ihre E-Mail ist nicht bestätigt.</p>
+            <Button variant="outline" onClick={handleResendVerification} className="w-full">
+                Bestätigungs-E-Mail erneut senden
+            </Button>
+        </div>
+      )}
     </Form>
   );
 }
