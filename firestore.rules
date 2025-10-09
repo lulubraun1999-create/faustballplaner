@@ -1,79 +1,55 @@
-
 rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-    
+
+    // Helper functions
     function isAuth() {
       return request.auth != null;
     }
+
+    function isOwner(userId) {
+      return request.auth.uid == userId;
+    }
     
     function isAdmin() {
-      return isAuth() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.adminRechte == true;
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.adminRechte == true;
     }
 
     function isMemberOfGroup(groupId) {
-      let userGroups = get(/databases/$(database)/documents/users/$(request.auth.uid)).data.groupIds;
-      return isAuth() && (groupId in userGroups);
-    }
-    
-    // Default deny all
-    match /{document=**} {
-      allow read, write: if false;
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.groupIds.hasAny([groupId]);
     }
 
-    // Allow logged-in users to read/write their own user profile
+    // Collection rules
     match /users/{userId} {
-      allow read, update, delete: if isAuth() && request.auth.uid == userId;
-      allow create: if isAuth();
+      allow read: if isAuth();
+      allow write: if isOwner(userId) || isAdmin();
     }
 
-    // Members are public, but only admins can change them
     match /members/{memberId} {
-      allow read: if isAuth();
-      allow create, update, delete: if isAdmin();
+        allow read: if isAuth();
+        allow write: if isAdmin();
     }
-    
-    // Groups are public, but only admins can change them
+
     match /groups/{groupId} {
       allow read: if isAuth();
+      allow write: if isAdmin();
+    }
+    
+    match /news/{articleId} {
+      allow read: if isAuth();
       allow create, update, delete: if isAdmin();
     }
 
-    // News are public, but only admins can change them
-    match /news/{newsId} {
-        allow read: if isAuth();
-        allow create, update, delete: if isAdmin();
-    }
-
-    // Team cash transactions:
-    // Allow any authenticated user to read all transactions.
-    // Admins and members of the specific group can create/update/delete.
     match /team-cash-transactions/{transactionId} {
-        allow read: if isAuth();
-        allow create, update, delete: if isAdmin() || isMemberOfGroup(resource.data.groupId);
-    }
-
-    // Penalties
-    match /penalties/{penaltyId} {
-        allow read: if isAuth();
-        allow create, update, delete: if isAdmin();
-    }
-
-    // Surveys
-    match /surveys/{surveyId} {
+      // Allow any authenticated user to read all transactions.
       allow read: if isAuth();
-      allow create, delete: if isAdmin();
-      
-      // Allow updates only for voting (updating options array) by authenticated users who are part of the target group (or if public)
-      allow update: if isAuth() && 
-                      (request.resource.data.keys().hasOnly(['options']) || 
-                       (isAdmin() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'question', 'expiresAt', 'archiveAt'])));
-      
-      match /responses/{responseId} {
-        allow read: if isAuth() && (responseId == request.auth.uid || isAdmin());
-        allow create, delete: if isAuth() && responseId == request.auth.uid;
-      }
+      allow write: if isAdmin() || isMemberOfGroup(request.resource.data.groupId);
+    }
+    
+    match /penalties/{penaltyId} {
+      allow read: if isAuth();
+      allow write: if isAdmin() || isMemberOfGroup(request.resource.data.groupId);
     }
   }
 }
