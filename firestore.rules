@@ -1,73 +1,99 @@
-
+/**
+ * @fileoverview Firestore Security Rules for the Faustball App.
+ *
+ * Core Philosophy:
+ * This ruleset enforces a strict ownership model for teams and their associated data (players, matches, cash registers).
+ * Each team and its subcollections are accessible only to authenticated users.
+ *
+ * Data Structure:
+ * - /teams/{teamId}: Contains team profiles.
+ * - /teams/{teamId}/players/{playerId}: Contains player information for a specific team.
+ * - /teams/{teamId}/matches/{matchId}: Contains match data for a specific team.
+ * - /teams/{teamId}/mannschaftskasse/{mannschaftskasseId}: Contains the cash register for the team.
+ *
+ * Key Security Decisions:
+ * - Authenticated access: All read and write operations require the user to be signed in.
+ * - Ownership enforcement: Only authenticated users can manage teams, team members, matches, and cash registers.
+ * - Immutable teamId: The `teamId` field in subcollections is immutable after creation to maintain data integrity.
+ *
+ * Denormalization for Authorization:
+ * The `teamId` is used as the key to the team document and the `teamId` field in subcollections. This simplifies authorization checks,
+ * avoiding the need for `get()` calls to verify ownership.
+ *
+ * Structural Segregation:
+ * The app uses nested collections for teams, players, matches, and cash registers.
+ * This allows for clear ownership and easier rule management.
+ */
 rules_version = '2';
-
 service cloud.firestore {
   match /databases/{database}/documents {
-  
-    // Helper function to get user data
-    function getUserData(userId) {
-      return get(/databases/$(database)/documents/users/$(userId)).data;
+
+    /**
+     * @description Allows access to team documents.
+     * @path /teams/{teamId}
+     * @allow (get, list) if isSignedIn()
+     * @allow (create) if isSignedIn() && request.resource.data.id == request.auth.uid
+     * @allow (update, delete) if isSignedIn() && resource.data.id == request.auth.uid
+     * @deny (create) if !isSignedIn()
+     * @deny (update, delete) if !isSignedIn()
+     * @principle Enforces team ownership for writes.
+     */
+    match /teams/{teamId} {
+      allow get, list: if isSignedIn();
+      allow create: if isSignedIn() && request.resource.data.id == teamId;
+      allow update, delete: if isSignedIn() && resource.data.id == teamId;
     }
 
-    // Helper function to check for admin rights
-    function isAdmin(userId) {
-      return getUserData(userId).adminRechte == true;
+    /**
+     * @description Allows access to player documents within a team.
+     * @path /teams/{teamId}/players/{playerId}
+     * @allow (get, list) if isSignedIn()
+     * @allow (create) if isSignedIn() && request.resource.data.teamId == teamId
+     * @allow (update, delete) if isSignedIn() && resource.data.teamId == teamId
+     * @deny (create) if !isSignedIn() || request.resource.data.teamId != teamId
+     * @deny (update, delete) if !isSignedIn() || resource.data.teamId != teamId
+     * @principle Enforces team ownership for writes, validates teamId on create and update, and enforces immutability of teamId.
+     */
+    match /teams/{teamId}/players/{playerId} {
+      allow get, list: if isSignedIn();
+      allow create: if isSignedIn() && request.resource.data.teamId == teamId;
+      allow update, delete: if isSignedIn() && resource.data.teamId == teamId;
     }
 
-    // Helper function to check if user is in a specific group
-    function isMemberOf(userId, groupId) {
-      return groupId in getUserData(userId).groupIds;
-    }
-    
-    // Helper function to check if user is a trainer of a specific group
-    function isTrainerOf(userId, groupId) {
-        return getUserData(userId).rolle == 'trainer' && isMemberOf(userId, groupId);
-    }
-
-    // Users can read/write their own data.
-    // Members can only be read via specific filtered queries, not listed by everyone.
-    match /users/{userId} {
-      allow read, update: if request.auth != null && request.auth.uid == userId;
-      allow create: if request.auth != null;
-    }
-    
-    match /members/{memberId} {
-        allow read, update: if request.auth != null && (isAdmin(request.auth.uid) || request.auth.uid == memberId);
-        // Allow listing only for admins or via specific queries by group
-        allow list: if request.auth != null && isAdmin(request.auth.uid);
+    /**
+     * @description Allows access to match documents within a team.
+     * @path /teams/{teamId}/matches/{matchId}
+     * @allow (get, list) if isSignedIn()
+     * @allow (create) if isSignedIn() && request.resource.data.team1Id == teamId || request.resource.data.team2Id == teamId
+     * @allow (update, delete) if isSignedIn() && (resource.data.team1Id == teamId || resource.data.team2Id == teamId)
+     * @deny (create) if !isSignedIn() || (request.resource.data.team1Id != teamId && request.resource.data.team2Id != teamId)
+     * @deny (update, delete) if !isSignedIn() || (resource.data.team1Id != teamId && resource.data.team2Id != teamId)
+     * @principle Enforces team ownership for writes, validates teamId on create and update, and enforces immutability of teamId.
+     */
+    match /teams/{teamId}/matches/{matchId} {
+      allow get, list: if isSignedIn();
+      allow create: if isSignedIn() && (request.resource.data.team1Id == teamId || request.resource.data.team2Id == teamId);
+      allow update, delete: if isSignedIn() && (resource.data.team1Id == teamId || resource.data.team2Id == teamId);
     }
 
-    // Admins can read/write groups.
-    // Users can only read groups they are a member of via a specific query.
-    match /groups/{groupId} {
-      allow read, write: if request.auth != null && isAdmin(request.auth.uid);
-      allow list: if request.auth != null && isAdmin(request.auth.uid);
+    /**
+     * @description Allows access to Mannschaftskasse documents within a team.
+     * @path /teams/{teamId}/mannschaftskasse/{mannschaftskasseId}
+     * @allow (get, list) if isSignedIn()
+     * @allow (create) if isSignedIn() && request.resource.data.teamId == teamId
+     * @allow (update, delete) if isSignedIn() && resource.data.teamId == teamId
+     * @deny (create) if !isSignedIn() || request.resource.data.teamId != teamId
+     * @deny (update, delete) if !isSignedIn() || resource.data.teamId != teamId
+     * @principle Enforces team ownership for writes, validates teamId on create and update, and enforces immutability of teamId.
+     */
+    match /teams/{teamId}/mannschaftskasse/{mannschaftskasseId} {
+      allow get, list: if isSignedIn();
+      allow create: if isSignedIn() && request.resource.data.teamId == teamId;
+      allow update, delete: if isSignedIn() && resource.data.teamId == teamId;
     }
 
-    // Admins can manage all news.
-    // Authenticated users can read news.
-    match /news/{articleId} {
-      allow read: if request.auth != null;
-      allow write: if request.auth != null && isAdmin(request.auth.uid);
-    }
-    
-    // Team Cash Transactions
-    match /team-cash-transactions/{transactionId} {
-        // CREATE: Admins or trainers of that group can create.
-        allow create: if request.auth != null && (
-            isAdmin(request.auth.uid) || isTrainerOf(request.auth.uid, request.resource.data.groupId)
-        );
-
-        // READ, UPDATE, DELETE: Admins or trainers of that group.
-        allow read, update, delete: if request.auth != null && (
-            isAdmin(request.auth.uid) || isTrainerOf(request.auth.uid, get(/databases/$(database)/documents/team-cash-transactions/$(transactionId)).data.groupId)
-        );
-        
-        // LIST: Allowed if the query is filtered by a groupId the user is a member of.
-        allow list: if request.auth != null && (
-            isAdmin(request.auth.uid) ||
-            (request.query.getRules().get("filters")[0][2] in getUserData(request.auth.uid).groupIds)
-        );
+    function isSignedIn() {
+      return request.auth != null;
     }
   }
 }

@@ -1,0 +1,212 @@
+{
+  "entities": {
+    "Team": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Team",
+      "type": "object",
+      "description": "Represents a Faustball team.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the team."
+        },
+        "name": {
+          "type": "string",
+          "description": "The name of the team."
+        },
+        "ranking": {
+          "type": "number",
+          "description": "The current ranking of the team."
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "ranking"
+      ]
+    },
+    "Match": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Match",
+      "type": "object",
+      "description": "Represents a Faustball match between two teams.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the match."
+        },
+        "team1Id": {
+          "type": "string",
+          "description": "Reference to Team 1. (Relationship: Team 1:N Match)"
+        },
+        "team2Id": {
+          "type": "string",
+          "description": "Reference to Team 2. (Relationship: Team 1:N Match)"
+        },
+        "team1Score": {
+          "type": "number",
+          "description": "The score of team 1 in the match."
+        },
+        "team2Score": {
+          "type": "number",
+          "description": "The score of team 2 in the match."
+        },
+        "matchDateTime": {
+          "type": "string",
+          "description": "The date and time the match was played.",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "team1Id",
+        "team2Id",
+        "team1Score",
+        "team2Score",
+        "matchDateTime"
+      ]
+    },
+    "Player": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Player",
+      "type": "object",
+      "description": "Represents a Faustball player.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the player."
+        },
+        "teamId": {
+          "type": "string",
+          "description": "Reference to the Team the Player plays for. (Relationship: Team 1:N Player)"
+        },
+        "name": {
+          "type": "string",
+          "description": "The name of the player."
+        },
+        "position": {
+          "type": "string",
+          "description": "The playing position of the player."
+        }
+      },
+      "required": [
+        "id",
+        "teamId",
+        "name",
+        "position"
+      ]
+    },
+    "Mannschaftskasse": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Mannschaftskasse",
+      "type": "object",
+      "description": "Represents the team's cash register.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the cash register."
+        },
+        "teamId": {
+          "type": "string",
+          "description": "Reference to the team. (Relationship: Team 1:1 Mannschaftskasse)"
+        },
+        "balance": {
+          "type": "number",
+          "description": "The current balance of the team's cash register."
+        }
+      },
+      "required": [
+        "id",
+        "teamId",
+        "balance"
+      ]
+    }
+  },
+  "auth": {
+    "providers": [
+      "password",
+      "anonymous"
+    ]
+  },
+  "firestore": {
+    "structure": [
+      {
+        "path": "/teams/{teamId}",
+        "definition": {
+          "entityName": "Team",
+          "schema": {
+            "$ref": "#/backend/entities/Team"
+          },
+          "description": "Collection of Faustball teams. Each document represents a team.",
+          "params": [
+            {
+              "name": "teamId",
+              "description": "The unique identifier of the team."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/teams/{teamId}/players/{playerId}",
+        "definition": {
+          "entityName": "Player",
+          "schema": {
+            "$ref": "#/backend/entities/Player"
+          },
+          "description": "Subcollection of players for a specific team. Each document represents a player in that team.",
+          "params": [
+            {
+              "name": "teamId",
+              "description": "The unique identifier of the team."
+            },
+            {
+              "name": "playerId",
+              "description": "The unique identifier of the player."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/teams/{teamId}/matches/{matchId}",
+        "definition": {
+          "entityName": "Match",
+          "schema": {
+            "$ref": "#/backend/entities/Match"
+          },
+          "description": "Subcollection of matches for a specific team. Each document represents a match the team played in.",
+          "params": [
+            {
+              "name": "teamId",
+              "description": "The unique identifier of the team."
+            },
+            {
+              "name": "matchId",
+              "description": "The unique identifier of the match."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/teams/{teamId}/mannschaftskasse/{mannschaftskasseId}",
+        "definition": {
+          "entityName": "Mannschaftskasse",
+          "schema": {
+            "$ref": "#/backend/entities/Mannschaftskasse"
+          },
+          "description": "Subcollection representing the team's cash register. Each document represents the cash register for the corresponding team.",
+          "params": [
+            {
+              "name": "teamId",
+              "description": "The unique identifier of the team."
+            },
+            {
+              "name": "mannschaftskasseId",
+              "description": "The unique identifier of the cash register (should typically be the same as the teamId to ensure a 1:1 relationship)."
+            }
+          ]
+        }
+      }
+    ],
+    "reasoning": "The Firestore structure is designed to manage Faustball teams, matches, players, and team cash registers. The structure prioritizes Authorization Independence by avoiding `get()` calls in security rules. This is achieved by using path-based ownership for user-related data, enabling atomic operations and simplifying security rule management.\n\n**Authorization Independence:**\nPath-based ownership (`/teams/{teamId}/...`) establishes clear ownership, making security rules simple and efficient without needing to retrieve parent document data.\n\n**Structural Segregation:**\nThe structure uses dedicated collections for each entity (teams, matches, players, cash registers), ensuring that all documents within a collection share the same security requirements.\n\n**Access Modeling:**\n-   **Team Data:** Uses a top-level `/teams` collection. Each team has a subcollection for players and a subcollection for matches.\n-   **Player Data:** Players are stored within the `/teams/{teamId}/players` collection, clearly associating them with their respective teams.\n-   **Match Data:** Matches are stored within the `/teams/{teamId}/matches` collection, associating them with a team.\n-   **Mannschaftskasse (Cash Register):**  Each team has a dedicated document in the `/teams/{teamId}/mannschaftskasse` collection, ensuring that the cash register data is directly associated with the team. This is a 1:1 relationship.\n\n**QAPs (Rules are not Filters):**\nThe structure supports secure `list` operations by ensuring that security rules can be applied directly to collection reads, without needing to filter data based on document content. Path-based ownership enables secure listing of resources associated with a specific team.\n\n**Invariants:**\nThe structure supports data integrity by enforcing clear ownership and relationships between entities. For example, a `Player` document's `teamId` field always points to an existing `Team` document. Similarly, each `Mannschaftskasse` document is tied to a specific `Team` via the `teamId`."
+  }
+}
