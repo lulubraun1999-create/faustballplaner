@@ -1,152 +1,86 @@
-/**
- * @fileoverview Firestore Security Rules for the application.
- *
- * Core Philosophy:
- * This ruleset enforces a strict user-ownership model for user profiles
- * and public read access with owner-only writes for news articles.
- * Team cash transactions and penalties are only accessible for authenticated users.
- * Member profiles are publicly readable.
- *
- * Data Structure:
- * - /users/{userId}: Stores private user data, accessible only by the user.
- * - /members/{memberId}: Stores public-readable member profiles
- * - /groups/{groupId}: Stores group information.
- * - /news/{newsId}: Stores news articles, publicly readable, writable only by the article author.
- * - /team-cash-transactions/{transactionId}: Stores cash transactions, only accessible for authenticated users.
- * - /penalties/{penaltyId}: Stores predefined penalties, only accessible for authenticated users.
- *
- * Key Security Decisions:
- * - Users can only read and write their own user document.
- * - News articles are publicly readable.
- * - News articles can only be created, updated, or deleted by the author.
- * - Listing of user documents is disallowed.
- * - Team cash transactions and penalties are accessible for authenticated users.
- *
- * Denormalization for Authorization:
- * - News articles include `authorId` to simplify ownership checks on writes.
- */
+
 rules_version = '2';
+
 service cloud.firestore {
   match /databases/{database}/documents {
+    // Helper function to check if a user has admin rights.
+    function isAdmin() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.adminRechte == true;
+    }
 
-    /**
-     * @description Controls access to user profiles.
-     * @path /users/{userId}
-     * @allow (create) User with ID 'user123' can create their own profile.
-     * @allow (get) User with ID 'user123' can read their own profile.
-     * @allow (update) User with ID 'user123' can update their own profile.
-     * @allow (delete) User with ID 'user123' can delete their own profile.
-     * @deny (create) User with ID 'user456' cannot create a profile for user 'user123'.
-     * @deny (get) User with ID 'user456' cannot read the profile of user 'user123'.
-     * @principle Enforces document ownership for user profiles.
-     */
+    // Helper function to check if a user is a member of a specific group.
+    function isMemberOfGroup(groupId) {
+      return groupId in get(/databases/$(database)/documents/users/$(request.auth.uid)).data.groupIds;
+    }
+
+    // Rules for the 'users' collection
     match /users/{userId} {
-      function isOwner(userId) {
-        return request.auth.uid == userId;
-      }
-
-      allow get: if isOwner(userId);
-      allow list: if false;
-      allow create: if isOwner(userId);
-      allow update: if isOwner(userId);
-      allow delete: if isOwner(userId);
+      // Admins can read any user profile.
+      // A user can read their own profile.
+      allow read: if isAdmin() || request.auth.uid == userId;
+      // Admins can write to any user profile.
+      // A user can write to their own profile.
+      allow write: if isAdmin() || request.auth.uid == userId;
     }
 
-      /**
-     * @description Controls access to member profiles.
-     * @path /members/{memberId}
-     * @allow (get) Any user can read a member profile.
-     * @allow (list) Any user can list member profiles.
-     * @deny (create) Only authenticated user can create member
-     * @deny (update) Only authenticated user can update member
-     * @deny (delete) Only authenticated user can delete member
-     * @principle Member profiles are publicly readable, writable only by authenticated user.
-     */
+    // Rules for the 'members' collection (publicly readable member data)
     match /members/{memberId} {
-      allow get: if true;
-      allow list: if true;
-      allow create: if request.auth != null;
-      allow update: if request.auth != null;
-      allow delete: if request.auth != null;
+      // Allow any authenticated user to read the public member list.
+      allow read: if request.auth != null;
+      // Only admins can write to the public member list.
+      allow write: if isAdmin();
     }
 
-    /**
-     * @description Controls access to group documents.
-     * @path /groups/{groupId}
-     * @allow (get) Any user can read a group document.
-     * @allow (list) Any user can list group documents.
-     * @deny (create) Only authenticated user can create group
-     * @deny (update) Only authenticated user can update group
-     * @deny (delete) Only authenticated user can delete group
-     * @principle Groups are publicly readable, writable only by authenticated user.
-     */
+    // Rules for the 'groups' collection
     match /groups/{groupId} {
-      allow get: if true;
-      allow list: if true;
-      allow create: if request.auth != null;
-      allow update: if request.auth != null;
-      allow delete: if request.auth != null;
+      // Any authenticated user can read the group structure.
+      allow read: if request.auth != null;
+      // Only admins can create, update, or delete groups.
+      allow write: if isAdmin();
     }
 
-    /**
-     * @description Controls access to news articles.
-     * @path /news/{newsId}
-     * @allow (get) Any user can read a news article.
-     * @allow (list) Any user can list news articles.
-     * @allow (create) User with ID 'user123' can create a news article with authorId: 'user123'.
-     * @allow (update) User with ID 'user123' can update a news article with authorId: 'user123'.
-     * @allow (delete) User with ID 'user123' can delete a news article with authorId: 'user123'.
-     * @deny (create) User with ID 'user456' cannot create a news article with authorId: 'user123'.
-     * @deny (update) User with ID 'user456' cannot update a news article with authorId: 'user123'.
-     * @deny (delete) User with ID 'user456' cannot delete a news article with authorId: 'user123'.
-     * @principle News articles are publicly readable, writable only by the author.
-     */
-    match /news/{newsId} {
-      function isAuthor(authorId) {
-        return request.auth.uid == authorId;
+    // Rules for 'news' articles
+    match /news/{articleId} {
+      // Any authenticated user can read news articles.
+      allow read: if request.auth != null;
+      // Only admins can create, update, or delete news articles.
+      allow write: if isAdmin();
+    }
+
+    // Rules for 'team-cash-transactions'
+    match /team-cash-transactions/{transactionId} {
+      allow read: if isAdmin() || isMemberOfGroup(resource.data.groupId);
+      allow create: if isAdmin() || isMemberOfGroup(request.resource.data.groupId);
+      allow update, delete: if isAdmin() || (isMemberOfGroup(resource.data.groupId) && request.auth.uid == resource.data.createdBy);
+    }
+    
+    // Rules for the 'penalties' collection
+    match /penalties/{penaltyId} {
+      allow read: if isAdmin() || isMemberOfGroup(resource.data.groupId);
+      allow write: if isAdmin() || isMemberOfGroup(request.resource.data.groupId);
+    }
+
+    // Rules for 'surveys' and their 'responses' subcollection
+    match /surveys/{surveyId} {
+      // Allow read if user is admin, or if survey is public, or if user is in a target group
+      allow read: if isAdmin() || resource.data.targetGroupIds.size() == 0 || resource.data.targetGroupIds.hasAny(get(/databases/$(database)/documents/users/$(request.auth.uid)).data.groupIds);
+      // Allow write (create/update/delete survey) only for admins
+      allow write: if isAdmin();
+
+      // Rules for the 'responses' subcollection
+      match /responses/{responseId} {
+        // A user can read their own response. Admins can read all responses.
+        allow read: if isAdmin() || request.auth.uid == responseId;
+        
+        // A user can create their own response document if they haven't voted yet.
+        allow create: if request.auth.uid == responseId && !exists(/databases/$(database)/documents/surveys/$(surveyId)/responses/$(request.auth.uid));
+
+        // A user can delete their own response to retract a vote.
+        allow delete: if request.auth.uid == responseId;
+
+        // Nobody can update a response document directly. Updates happen via transactions.
+        allow update: if false;
       }
-
-      allow get: if true;
-      allow list: if true;
-      allow create: if request.auth != null && request.resource.data.authorId == request.auth.uid;
-      allow update: if request.auth != null && isAuthor(resource.data.authorId) && resource != null;
-      allow delete: if request.auth != null && isAuthor(resource.data.authorId) && resource != null;
-    }
-
-    /**
-     * @description Controls access to team cash transactions.
-     * @path /team-cash-transactions/{transactionId}
-     * @allow (get) Authenticated user can read transaction
-     * @allow (list) Authenticated user can list transactions
-     * @deny (create) Only authenticated user can create transaction
-     * @deny (update) Only authenticated user can update transaction
-     * @deny (delete) Only authenticated user can delete transaction
-     * @principle Team cash transactions are only accessible for authenticated user.
-     */
-     match /team-cash-transactions/{transactionId} {
-      allow get: if request.auth != null;
-      allow list: if request.auth != null;
-      allow create: if request.auth != null;
-      allow update: if request.auth != null && resource != null;
-      allow delete: if request.auth != null && resource != null;
-    }
-
-     /**
-     * @description Controls access to predefined penalties.
-     * @path /penalties/{penaltyId}
-     * @allow (get) Authenticated user can read penalty
-     * @allow (list) Authenticated user can list penalties
-     * @deny (create) Only authenticated user can create penalty
-     * @deny (update) Only authenticated user can update penalty
-     * @deny (delete) Only authenticated user can delete penalty
-     * @principle Predefined penalties are only accessible for authenticated user.
-     */
-     match /penalties/{penaltyId} {
-      allow get: if request.auth != null;
-      allow list: if request.auth != null;
-      allow create: if request.auth != null;
-      allow update: if request.auth != null && resource != null;
-      allow delete: if request.auth != null && resource != null;
     }
   }
 }
