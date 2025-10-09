@@ -115,6 +115,8 @@ export function SignupForm() {
       let description = 'Ein unerwarteter Fehler ist aufgetreten.';
       if (error.code === 'auth/email-already-in-use') {
         description = 'Diese E-Mail-Adresse wird bereits verwendet.';
+      } else if (error.code === 'auth/invalid-api-key' || error.code === 'auth/api-key-not-valid') {
+        description = 'Der API-Schlüssel ist ungültig. Bitte kontaktieren Sie den Support.';
       }
       toast({
         variant: 'destructive',
