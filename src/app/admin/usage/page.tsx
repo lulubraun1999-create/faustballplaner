@@ -1,13 +1,12 @@
 
 "use client";
 
-import { useFirestore, useCollection, useMemoFirebase } from "@/firebase";
+import { useFirestore } from "@/firebase";
 import { collection, getCountFromServer, query } from "firebase/firestore";
 import { Header } from "@/components/shared/header";
 import { useEffect, useState } from "react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Loader2, Users, Newspaper, Vote, CandlestickChart } from "lucide-react";
-import { Group } from "../groups/page";
 
 interface UsageStats {
     name: string;
@@ -57,6 +56,7 @@ export default function UsagePage() {
             ];
 
             const promises = collectionsToCount.map(async ({ name, collectionName }) => {
+                if (!firestore) return { name, count: 0 };
                 const collRef = collection(firestore, collectionName);
                 const snapshot = await getCountFromServer(collRef);
                 return { name, count: snapshot.data().count };
