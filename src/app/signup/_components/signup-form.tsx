@@ -70,8 +70,6 @@ export function SignupForm() {
     startTransition(true);
 
     try {
-      // Initialize Firebase services directly here to ensure they are available and correct.
-      // We call initializeApp() without config to try and use automatic server-side configuration.
       const app = getApps().length === 0 ? initializeApp() : getApps()[0];
       const auth = getAuth(app);
       const firestore = getFirestore(app);
@@ -99,7 +97,6 @@ export function SignupForm() {
       const userDocRef = doc(firestore, 'users', newUser.uid);
       const memberDocRef = doc(firestore, 'members', newUser.uid);
 
-      // These are non-blocking writes
       setDocumentNonBlocking(userDocRef, userDocData, { merge: true });
       setDocumentNonBlocking(memberDocRef, userDocData, { merge: true });
 
@@ -124,7 +121,7 @@ export function SignupForm() {
             break;
           case 'auth/invalid-api-key':
           case 'auth/api-key-not-valid':
-             description = `Der API-Schlüssel ist ungültig. (${error.code})`;
+             description = `Der API-Schlüssel ist ungültig. Bitte versuchen Sie es später erneut. (${error.code})`;
              break;
           default:
             console.error('Registration Error:', error);
@@ -240,7 +237,7 @@ export function SignupForm() {
             </div>
           </div>
             <div className="grid gap-2">
-              <Label htmlFor="registrationCode">Registrierungscode</Label>
+              <Label htmlFor="registrationCode">Registrierungscode (optional)</Label>
               <Controller
                 name="registrationCode"
                 control={control}
