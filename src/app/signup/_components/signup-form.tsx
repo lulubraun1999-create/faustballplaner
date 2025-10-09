@@ -69,19 +69,9 @@ export function SignupForm() {
 
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
     startTransition(true);
-    
-    // const expectedCode = 'ellaistoll';
-    // if (values.registrationCode.trim().toLowerCase() !== expectedCode) {
-    //     toast({
-    //         variant: 'destructive',
-    //         title: 'Registrierung fehlgeschlagen',
-    //         description: 'Der Registrierungscode ist falsch.',
-    //     });
-    //     startTransition(false);
-    //     return;
-    // }
 
     try {
+      // Initialize Firebase services directly here to ensure they are available and correct.
       const app = initializeApp(firebaseConfig);
       const auth = getAuth(app);
       const firestore = getFirestore(app);
@@ -109,6 +99,7 @@ export function SignupForm() {
       const userDocRef = doc(firestore, 'users', newUser.uid);
       const memberDocRef = doc(firestore, 'members', newUser.uid);
 
+      // These are non-blocking writes
       setDocumentNonBlocking(userDocRef, userDocData, { merge: true });
       setDocumentNonBlocking(memberDocRef, userDocData, { merge: true });
 
