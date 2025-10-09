@@ -14,7 +14,7 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import { useAuth, useFirestore } from "@/firebase";
+import { useAuth, useFirestore, initializeFirebase } from "@/firebase";
 import {
   createUserWithEmailAndPassword,
   sendEmailVerification,
@@ -37,8 +37,6 @@ const formSchema = z.object({
 });
 
 export function SignUpForm() {
-  const auth = useAuth();
-  const firestore = useFirestore();
   const router = useRouter();
   const { toast } = useToast();
   const [isPending, startTransition] = React.useTransition();
@@ -56,7 +54,16 @@ export function SignUpForm() {
 
   const onSubmit = (values: z.infer<typeof formSchema>) => {
     startTransition(async () => {
-      if (!auth || !firestore) return;
+      // Explicitly initialize Firebase to ensure auth and firestore are ready.
+      const { auth, firestore } = initializeFirebase();
+      if (!auth || !firestore) {
+           toast({
+                variant: "destructive",
+                title: "Fehler",
+                description: "Firebase konnte nicht initialisiert werden.",
+           });
+           return;
+      }
       try {
         // Step 1: Create user with Firebase Auth
         const userCredential = await createUserWithEmailAndPassword(
@@ -86,9 +93,9 @@ export function SignUpForm() {
         const userDocRef = doc(firestore, "users", user.uid);
         const memberDocRef = doc(firestore, "members", user.uid);
         
-        // This was a source of errors, we'll try without it first.
-        // await setDoc(userDocRef, userProfileData, { merge: true });
-        // await setDoc(memberDocRef, userProfileData, { merge: true });
+        // Use a batch write or individual writes
+        await setDoc(userDocRef, userProfileData, { merge: true });
+        await setDoc(memberDocRef, userProfileData, { merge: true });
         
         // Step 4: Send verification email
         await sendEmailVerification(user);
@@ -105,17 +112,23 @@ export function SignUpForm() {
         // Log the full error to the console for debugging
         console.error("Registration Error:", error);
 
-        // Provide a more specific error message to the user
-        let description = `Ein unerwarteter Fehler ist aufgetreten. Fehlercode: ${error.code || 'UNKNOWN'}`;
-        if (error.code === 'auth/email-already-in-use') {
+        let description = `Ein unerwarteter Fehler ist aufgetreten.`;
+        
+        switch (error.code) {
+          case 'auth/email-already-in-use':
             description = "Diese E-Mail-Adresse wird bereits verwendet.";
-        } else if (error.code === 'permission-denied') {
+            break;
+          case 'permission-denied':
             description = "Fehlende Berechtigung. Bitte überprüfen Sie die Sicherheitsregeln.";
-        } else if (error.code === 'auth/network-request-failed') {
-          description = "Netzwerkfehler. Bitte überprüfen Sie Ihre Internetverbindung und versuchen Sie es erneut.";
-        }
-        else if (error.message) {
-            description = `${error.code}: ${error.message}`;
+            break;
+          case 'auth/network-request-failed':
+            description = "Netzwerkfehler. Bitte überprüfen Sie Ihre Internetverbindung.";
+            break;
+          case 'auth/api-key-not-valid':
+            description = "Der API-Schlüssel ist ungültig. Bitte kontaktieren Sie den Support.";
+            break;
+          default:
+            description = `Fehler: ${error.message} (${error.code})`;
         }
 
         toast({
