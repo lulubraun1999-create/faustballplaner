@@ -16,6 +16,7 @@ import { updateDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import type { MemberProfile } from '../../members/page';
 import { Transaction } from '../page';
 import { Textarea } from '@/components/ui/textarea';
+import { useEffect, useState } from 'react';
 
 interface EditTransactionFormProps {
   transaction: Transaction;
@@ -43,11 +44,11 @@ export function EditTransactionForm({ transaction, onClose }: EditTransactionFor
   }, [firestore, transaction]);
   const { data: members, isLoading: isLoadingMembers } = useCollection<MemberProfile>(membersQuery);
 
-  const { control, handleSubmit, formState: { errors } } = useForm<TransactionFormData>({
+  const { control, handleSubmit, formState: { errors }, watch } = useForm<TransactionFormData>({
     resolver: zodResolver(transactionSchema),
     defaultValues: {
-      type: transaction.type,
-      amount: transaction.amount,
+      type: transaction.amount >= 0 ? 'einzahlung' : 'strafe',
+      amount: Math.abs(transaction.amount),
       description: transaction.description,
       memberId: transaction.memberId || '',
     },
@@ -60,7 +61,7 @@ export function EditTransactionForm({ transaction, onClose }: EditTransactionFor
     
     const transactionData = {
       ...data,
-      amount: Math.abs(data.amount),
+      amount: data.type === 'strafe' ? -Math.abs(data.amount) : Math.abs(data.amount),
       memberName: selectedMember?.name || 'Allgemein',
       updatedAt: serverTimestamp(),
     };
@@ -71,6 +72,8 @@ export function EditTransactionForm({ transaction, onClose }: EditTransactionFor
     toast({ title: "Erfolg", description: "Transaktion wurde aktualisiert." });
     onClose();
   };
+  
+  const transactionType = watch('type');
 
   return (
     <div>
@@ -109,6 +112,7 @@ export function EditTransactionForm({ transaction, onClose }: EditTransactionFor
                     <SelectValue placeholder={isLoadingMembers ? "Lade Mitglieder..." : "Mitglied wählen (optional)..."} />
                   </SelectTrigger>
                   <SelectContent>
+                    <SelectItem value="">Allgemein</SelectItem>
                     {isLoadingMembers ? (
                         <div className="flex items-center justify-center p-4"><Loader2 className="animate-spin"/></div>
                     ) : (
@@ -148,3 +152,5 @@ export function EditTransactionForm({ transaction, onClose }: EditTransactionFor
     </div>
   );
 }
+
+    

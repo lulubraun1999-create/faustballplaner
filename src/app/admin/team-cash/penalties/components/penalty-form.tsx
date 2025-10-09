@@ -13,6 +13,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Loader2 } from 'lucide-react';
 import { addDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { Textarea } from '@/components/ui/textarea';
+import { useState } from 'react';
 
 interface PenaltyFormProps {
   onClose: () => void;
@@ -51,6 +52,7 @@ export function PenaltyForm({ onClose }: PenaltyFormProps) {
       .catch((error) => {
         console.error("Error adding penalty:", error);
         toast({ variant: 'destructive', title: "Fehler", description: "Strafe konnte nicht hinzugefügt werden." });
+      }).finally(() => {
         startTransition(false);
       });
   };
@@ -97,3 +99,5 @@ export function PenaltyForm({ onClose }: PenaltyFormProps) {
     </div>
   );
 }
+
+    

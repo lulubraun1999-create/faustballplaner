@@ -1,6 +1,7 @@
 
 "use client";
 
+import { useState } from 'react';
 import { useForm, Controller } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -42,7 +43,7 @@ export function AddTransactionForm({ groupId, onClose }: AddTransactionFormProps
   }, [firestore, groupId]);
   const { data: members, isLoading: isLoadingMembers } = useCollection<MemberProfile>(membersQuery);
 
-  const { control, handleSubmit, formState: { errors } } = useForm<TransactionFormData>({
+  const { control, handleSubmit, formState: { errors }, watch } = useForm<TransactionFormData>({
     resolver: zodResolver(transactionSchema),
     defaultValues: {
       type: 'strafe',
@@ -58,7 +59,7 @@ export function AddTransactionForm({ groupId, onClose }: AddTransactionFormProps
     const transactionData = {
       groupId,
       ...data,
-      amount: Math.abs(data.amount), // Ensure amount is positive
+      amount: data.type === 'strafe' ? -Math.abs(data.amount) : Math.abs(data.amount),
       memberName: selectedMember?.name || 'Allgemein',
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
@@ -74,9 +75,12 @@ export function AddTransactionForm({ groupId, onClose }: AddTransactionFormProps
         // Error is handled by non-blocking update, just log and inform user
         console.error("Error adding transaction:", error);
         toast({ variant: 'destructive', title: "Fehler", description: "Transaktion konnte nicht hinzugefügt werden." });
+      }).finally(() => {
         startTransition(false);
       });
   };
+  
+    const transactionType = watch('type');
 
   return (
     <div>
@@ -115,6 +119,7 @@ export function AddTransactionForm({ groupId, onClose }: AddTransactionFormProps
                     <SelectValue placeholder={isLoadingMembers ? "Lade Mitglieder..." : "Mitglied wählen (optional)..."} />
                   </SelectTrigger>
                   <SelectContent>
+                     <SelectItem value="">Allgemein</SelectItem>
                     {isLoadingMembers ? (
                         <div className="flex items-center justify-center p-4"><Loader2 className="animate-spin"/></div>
                     ) : (
@@ -138,7 +143,7 @@ export function AddTransactionForm({ groupId, onClose }: AddTransactionFormProps
               name="description"
               control={control}
               render={({ field }) => (
-                <Textarea {...field} placeholder="Beschreibung (z.B. 'Verspätung Training')" />
+                <Textarea {...field} placeholder={`Beschreibung (z.B. 'Verspätung Training' bei Strafe, 'Einzahlung' bei Einzahlung)`} />
               )}
             />
             {errors.description && <p className="text-sm font-medium text-destructive">{errors.description.message}</p>}
@@ -154,3 +159,5 @@ export function AddTransactionForm({ groupId, onClose }: AddTransactionFormProps
     </div>
   );
 }
+
+    

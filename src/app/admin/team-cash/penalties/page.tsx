@@ -47,12 +47,20 @@ export default function TeamCashPenaltiesPage() {
   const canEdit = userProfile?.adminRechte || userProfile?.rolle === 'trainer';
 
   const handleDelete = (penaltyId: string) => {
-    if (!firestore) return;
+    if (!firestore || !canEdit) return;
     const penaltyRef = doc(firestore, 'team-cash-penalties', penaltyId);
     deleteDocumentNonBlocking(penaltyRef);
     toast({ title: 'Erfolg', description: 'Strafe wurde aus dem Katalog gelöscht.' });
   };
   
+  if (!userProfile) {
+    return (
+        <div className="flex min-h-screen flex-col items-center justify-center">
+            <Loader2 className="h-16 w-16 animate-spin text-primary" />
+        </div>
+    )
+  }
+
   if (!canEdit) {
      return (
        <div className="flex min-h-screen flex-col">
@@ -88,10 +96,13 @@ export default function TeamCashPenaltiesPage() {
         <div className="container mx-auto px-4 py-8 md:py-12">
           <div className="flex justify-between items-center mb-8">
             <h1 className="text-3xl font-bold tracking-tight">Strafenkatalog</h1>
-            <Button onClick={() => setIsManaging(true)}>
-              <PlusCircle className="mr-2 h-4 w-4" />
-              Neue Strafe
-            </Button>
+            <div className='flex gap-2'>
+                <Button variant="outline" asChild><Link href="/admin/team-cash">Zurück zur Kasse</Link></Button>
+                <Button onClick={() => setIsManaging(true)}>
+                <PlusCircle className="mr-2 h-4 w-4" />
+                Neue Strafe
+                </Button>
+            </div>
           </div>
           <Card>
             <CardHeader>
@@ -142,3 +153,5 @@ export default function TeamCashPenaltiesPage() {
     </div>
   );
 }
+
+    

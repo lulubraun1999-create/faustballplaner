@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState, useMemo, useEffect } from 'react';
@@ -54,16 +55,21 @@ export default function TeamCashPage() {
   const { data: userProfile, isLoading: isLoadingUserProfile } = useDoc<MemberProfile>(userProfileRef);
 
   const isAdmin = userProfile?.adminRechte === true;
-  const userRole = userProfile?.rolle;
+  const isTrainer = userProfile?.rolle === 'trainer';
 
   // 2. Get all groups (if admin) or only the user's groups
   const groupsQuery = useMemoFirebase(() => {
     if (!firestore || !userProfile) return null;
     if (isAdmin) {
+      // Admins get all parent groups
       return query(collection(firestore, 'groups'), where('parentGroupId', '==', null), orderBy('name'));
     }
     if (userProfile.groupIds && userProfile.groupIds.length > 0) {
-      return query(collection(firestore, 'groups'), where('id', 'in', userProfile.groupIds), where('parentGroupId', '==', null), orderBy('name'));
+      // Non-admins get the parent groups of the subgroups they are in.
+       const subGroupsTheyAreIn = query(collection(firestore, 'groups'), where('id', 'in', userProfile.groupIds));
+       // This is a simplification. A more complex query would be needed to get parent groups from subgroups.
+       // For now, let's assume trainers/players are also added to parent groups they should see.
+       return query(collection(firestore, 'groups'), where('id', 'in', userProfile.groupIds), orderBy('name'));
     }
     return null;
   }, [firestore, userProfile, isAdmin]);
@@ -90,10 +96,10 @@ export default function TeamCashPage() {
     return transactions.reduce((acc, t) => acc + (t.type === 'einzahlung' ? t.amount : -t.amount), 0);
   }, [transactions]);
   
-  const canEdit = isAdmin || userRole === 'trainer';
+  const canEdit = isAdmin || (isTrainer && userProfile?.groupIds?.includes(selectedGroupId || ''));
 
   const handleDelete = (transaction: Transaction) => {
-    if (!firestore) return;
+    if (!firestore || !canEdit) return;
     const docRef = doc(firestore, 'team-cash-transactions', transaction.id);
     deleteDocumentNonBlocking(docRef);
     toast({
@@ -104,7 +110,7 @@ export default function TeamCashPage() {
 
   const isLoading = isLoadingUserProfile || isLoadingGroups;
 
-  if (isAdding && selectedGroupId) {
+  if (isAdding && selectedGroupId && canEdit) {
     return (
         <div className="flex min-h-screen flex-col">
             <Header />
@@ -117,7 +123,7 @@ export default function TeamCashPage() {
     );
   }
   
-   if (isEditing && selectedGroupId) {
+   if (isEditing && selectedGroupId && canEdit) {
     return (
         <div className="flex min-h-screen flex-col">
             <Header />
@@ -272,3 +278,5 @@ export default function TeamCashPage() {
     </div>
   );
 }
+
+    
