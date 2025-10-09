@@ -14,7 +14,7 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import { useAuth, useUser } from "@/firebase";
+import { useAuth, useUser, initializeFirebase } from "@/firebase";
 import {
   sendEmailVerification,
   signInWithEmailAndPassword,
@@ -30,7 +30,6 @@ const formSchema = z.object({
 });
 
 export function LoginForm() {
-  const auth = useAuth();
   const router = useRouter();
   const { toast } = useToast();
   const { user, isUserLoading } = useUser();
@@ -53,7 +52,16 @@ export function LoginForm() {
   }, [user, isUserLoading, router]);
 
   const onSubmit = (values: z.infer<typeof formSchema>) => {
-    if (!auth) return;
+    // Explicitly initialize Firebase to ensure auth is ready.
+    const { auth } = initializeFirebase();
+    if (!auth) {
+        toast({
+            variant: "destructive",
+            title: "Fehler",
+            description: "Authentifizierungsdienst konnte nicht geladen werden.",
+        });
+        return;
+    };
     
     startTransition(true);
     
@@ -73,6 +81,7 @@ export function LoginForm() {
             title: "E-Mail nicht verifiziert",
             description: "Bitte überprüfen Sie Ihr Postfach. Eine neue Bestätigungs-E-Mail wurde gesendet.",
           });
+           startTransition(false);
         }
       })
       .catch((error) => {
@@ -87,7 +96,7 @@ export function LoginForm() {
             description = "Die E-Mail-Adresse ist ungültig.";
             break;
           case 'auth/api-key-not-valid':
-             description = `Der API-Schlüssel ist ungültig. (${error.code})`;
+             description = `Der API-Schlüssel ist ungültig. Bitte kontaktieren Sie den Support. (${error.code})`;
              break;
           case 'auth/network-request-failed':
              description = `Netzwerkfehler. Bitte überprüfen Sie Ihre Verbindung. (${error.code})`;
@@ -100,8 +109,6 @@ export function LoginForm() {
           title: "Anmeldung fehlgeschlagen",
           description,
         });
-      })
-      .finally(() => {
         startTransition(false);
       });
   };
