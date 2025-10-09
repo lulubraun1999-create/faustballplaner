@@ -51,6 +51,7 @@ export function LoginForm() {
 
   const onSubmit = (values: z.infer<typeof formSchema>) => {
     startTransition(async () => {
+      if (!auth) return;
       try {
         const userCredential = await signInWithEmailAndPassword(auth, values.email, values.password);
         
