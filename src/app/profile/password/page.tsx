@@ -57,7 +57,7 @@ export default function PasswordPage() {
         });
         
         await auth.signOut();
-        router.push("/");
+        router.push("/login");
 
       } catch (error: any) {
         let description = "Ein Fehler ist aufgetreten.";
