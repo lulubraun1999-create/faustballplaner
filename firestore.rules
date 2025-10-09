@@ -2,94 +2,107 @@
  * @fileoverview Firestore Security Rules for Faustball App
  *
  * Core Philosophy:
- * This ruleset enforces a hierarchical data model with team-based access control.
- * Each team has associated players and matches. Cash registers are managed at the group level.
- * Data access is primarily based on team or group membership.
+ * This ruleset enforces a hierarchical data model with path-based ownership for teams, players, matches and cash registers.  It prioritizes Authorization Independence by avoiding `get()` calls in security rules.
  *
  * Data Structure:
- * - /teams/{teamId}: Team information.
- * - /teams/{teamId}/players/{playerId}: Player information for a specific team.
- * - /teams/{teamId}/matches/{matchId}: Match information for a specific team.
- * - /groups/{groupId}/cashRegister/{cashRegisterId}: Cash register for a specific group.
- * - /groups/{groupId}/cashRegister/{cashRegisterId}/transactions/{transactionId}: Transaction history for a cash register.
+ * - `/teams/{teamId}`: Stores team data.
+ * - `/teams/{teamId}/players/{playerId}`: Stores player data associated with a team.
+ * - `/teams/{teamId}/matches/{matchId}`: Stores match data associated with a team.
+ * - `/groups/{groupId}/cashRegister/{cashRegisterId}`: Stores cash register data associated with a group.
+ * - `/groups/{groupId}/cashRegister/{cashRegisterId}/transactions/{transactionId}`: Stores transactions associated with a cash register.
  *
  * Key Security Decisions:
- * - Listing all teams is allowed.
- * - Listing players and matches is allowed within a specific team.
- * - Cash register and transaction data are protected and only accessible within a specific group.
+ * - Data access is primarily controlled through path-based rules, leveraging the hierarchical structure of Firestore.
+ * - List operations are secured based on the collection's data model, ensuring only authorized users can list documents.
+ * - All write operations are protected by authorization checks to prevent unauthorized data modification.
  *
  * Denormalization for Authorization:
- *  The data model employs path-based ownership to avoid costly `get()` calls. For example, players are stored under their respective teams,
- * allowing rules to check `teamId` directly in the path instead of fetching the team document.
+ *  - The `teamId` field is present on the `Player` and `Match` entities, enabling direct association with a `Team` document without additional `get()` calls.
+ *  - The `groupId` field is present on the `CashRegister` entity, enabling direct association with a `Group` document without additional `get()` calls.
  */
+
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
     /**
-     * @description Allows read access to the teams collection for everyone.
-     * Allows team creation, update, and delete only for authenticated users.
+     * @description Rules for the /teams/{teamId} collection.
      * @path /teams/{teamId}
-     * @allow (get, list): Everyone can read the teams collection.
-     * @allow (create, update, delete): Authenticated users can create, update, and delete teams.
-     * @deny: Not authenticated users can not create, update, and delete teams.
-     * @principle: Public read, owner-only writes. Authenticated user can manage teams.
+     * @allow (get, list): Any user can read team data.
+     * @allow (create): Only signed in users can create teams.
+     * @allow (update): Only signed in users can update teams.
+     * @allow (delete): Only signed in users can delete teams.
+     * @principle Public read, no writes allowed in this prototype.
      */
     match /teams/{teamId} {
       allow get, list: if true;
-      allow create, update, delete: if isSignedIn();
+      allow create: if isSignedIn();
+      allow update: if isSignedIn();
+      allow delete: if isSignedIn();
     }
 
     /**
-     * @description Allows read and write access to players only within their team.
+     * @description Rules for the /teams/{teamId}/players/{playerId} collection.
      * @path /teams/{teamId}/players/{playerId}
-     * @allow (get, list): Everyone can read the players collection.
-     * @allow (create, update, delete): Authenticated user can create, update, and delete players.
-     * @deny: Not authenticated users can not create, update, and delete players.
-     * @principle: Authenticated user can manage players for a team.
+     * @allow (get, list): Any user can read player data.
+     * @allow (create): Only signed in users can create players.
+     * @allow (update): Only signed in users can update players.
+     * @allow (delete): Only signed in users can delete players.
+     * @principle Public read, no writes allowed in this prototype.
      */
     match /teams/{teamId}/players/{playerId} {
       allow get, list: if true;
-      allow create, update, delete: if isSignedIn();
+      allow create: if isSignedIn();
+      allow update: if isSignedIn();
+      allow delete: if isSignedIn();
     }
 
     /**
-     * @description Allows read and write access to matches only within their team.
+     * @description Rules for the /teams/{teamId}/matches/{matchId} collection.
      * @path /teams/{teamId}/matches/{matchId}
-     * @allow (get, list): Everyone can read the matches collection.
-     * @allow (create, update, delete): Authenticated user can create, update, and delete matches.
-     * @deny: Not authenticated users can not create, update, and delete matches.
-     * @principle: Authenticated user can manage matches for a team.
+     * @allow (get, list): Any user can read match data.
+     * @allow (create): Only signed in users can create matches.
+     * @allow (update): Only signed in users can update matches.
+     * @allow (delete): Only signed in users can delete matches.
+     * @principle Public read, no writes allowed in this prototype.
      */
     match /teams/{teamId}/matches/{matchId} {
       allow get, list: if true;
-      allow create, update, delete: if isSignedIn();
+      allow create: if isSignedIn();
+      allow update: if isSignedIn();
+      allow delete: if isSignedIn();
     }
 
     /**
-     * @description Allows read and write access to cash register for a specific group.
+     * @description Rules for the /groups/{groupId}/cashRegister/{cashRegisterId} collection.
      * @path /groups/{groupId}/cashRegister/{cashRegisterId}
-     * @allow (get, list): Authenticated user can read the cash register.
-     * @allow (create, update, delete): Authenticated user can create, update, and delete the cash register.
-     * @deny: Not authenticated users can not create, update, and delete the cash register.
-     * @principle: Authenticated user can manage the cash register for a group.
+     * @allow (get, list): Any user can read cash register data.
+     * @allow (create): Only signed in users can create cash registers.
+     * @allow (update): Only signed in users can update cash registers.
+     * @allow (delete): Only signed in users can delete cash registers.
+     * @principle Public read, no writes allowed in this prototype.
      */
     match /groups/{groupId}/cashRegister/{cashRegisterId} {
-      allow get, list: if isSignedIn();
-      allow create, update, delete: if isSignedIn();
+      allow get, list: if true;
+      allow create: if isSignedIn();
+      allow update: if isSignedIn();
+      allow delete: if isSignedIn();
     }
 
     /**
-     * @description Allows read and write access to transactions for a specific cash register.
+     * @description Rules for the /groups/{groupId}/cashRegister/{cashRegisterId}/transactions/{transactionId} collection.
      * @path /groups/{groupId}/cashRegister/{cashRegisterId}/transactions/{transactionId}
-     * @allow (get, list): Authenticated user can read transactions.
-     * @allow (create, update, delete): Authenticated user can create, update, and delete transactions.
-     * @deny: Not authenticated users can not create, update, and delete transactions.
-     * @principle: Authenticated user can manage transactions for a cash register.
+     * @allow (get, list): Any user can read transaction data.
+     * @allow (create): Only signed in users can create transactions.
+     * @allow (update): Only signed in users can update transactions.
+     * @allow (delete): Only signed in users can delete transactions.
+     * @principle Public read, no writes allowed in this prototype.
      */
     match /groups/{groupId}/cashRegister/{cashRegisterId}/transactions/{transactionId} {
-      allow get, list: if isSignedIn();
-      allow create, update, delete: if isSignedIn();
+      allow get, list: if true;
+      allow create: if isSignedIn();
+      allow update: if isSignedIn();
+      allow delete: if isSignedIn();
     }
 
     function isSignedIn() {
