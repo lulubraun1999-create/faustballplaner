@@ -51,7 +51,7 @@ export function LoginForm() {
     }
   }, [user, isUserLoading, router]);
 
-  const onSubmit = (values: z.infer<typeof formSchema>) => {
+  const onSubmit = (values: z.infer<typeof formSchema>>) => {
     startTransition(true);
     
     signInWithEmailAndPassword(auth, values.email, values.password)
