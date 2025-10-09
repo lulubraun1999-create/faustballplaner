@@ -212,8 +212,8 @@ export function SignupForm() {
             />
             {errors.email && (
               <p className="text-sm font-medium text-destructive">
-                {errors.email.message}
-              </p>
+                  {errors.email.message}
+                </p>
             )}
           </div>
           <div className="grid grid-cols-2 gap-4">
