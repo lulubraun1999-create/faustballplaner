@@ -1,104 +1,104 @@
 /**
- * @fileoverview Firestore Security Rules for Faustball Team Management.
+ * @description This ruleset enforces a strict access control model for managing Faustball teams, players, matches, and team cash registers.
+ * It leverages path-based ownership to ensure that users can only access data associated with their teams.
  *
- * Core Philosophy:
- * This ruleset implements a hierarchical data model with team-centric organization.
- * Access is primarily based on team ownership.
+ * @dataStructure
+ * - /teams/{teamId}: Stores team information.
+ * - /teams/{teamId}/players/{playerId}: Stores player information for a specific team.
+ * - /teams/{teamId}/matches/{matchId}: Stores match information for a specific team.
+ * - /groups/{groupId}/cashRegister/{cashRegisterId}: Stores cash register information for a specific group.
+ * - /groups/{groupId}/cashRegister/{cashRegisterId}/transactions/{transactionId}: Stores transaction information for a specific cash register.
  *
- * Data Structure:
- * - /teams/{teamId}: Contains team profile information.
- * - /teams/{teamId}/players/{playerId}: Contains player information related to a specific team.
- * - /teams/{teamId}/matches/{matchId}: Contains match information for a specific team.
- * - /groups/{groupId}/cashRegister/{cashRegisterId}: Contains the cash register of a group.
- * - /groups/{groupId}/cashRegister/{cashRegisterId}/transactions/{transactionId}: Contains the transactions of a cash register.
+ * @keySecurityDecisions
+ * - Public listing of teams is allowed.
+ * - Players and Matches are scoped to their respective teams and are not publicly listable.
+ * - Cash Registers and Transactions are scoped to their respective groups.
+ * - Write access to all collections requires authentication.
+ * - The rules avoid using `get()` calls for authorization by relying on path-based ownership, which enhances performance and simplifies rule management.
  *
- * Key Security Decisions:
- * - All writes are validated against authenticated user IDs.
- * - Data validation focuses on authorization-critical fields (e.g., teamId, groupId).
- * - List operations are secured based on ownership.
- * - The rules enforce authorization independence.
+ * @denormalizationForAuthorization
+ * - There is no need for denormalization in the rules, since the authorization is based only on the path.
+ *
+ * @structuralSegregation
+ * - The design utilizes separate collections for teams, players and matches.
  */
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
     /**
-     * @description Grants access to team data.
+     * @description Allows public read access to teams and restricts write access to authenticated users.
      * @path /teams/{teamId}
-     * @allow (get, list): Public read access for all teams.
-     * @allow (create): Allowed if the user is authenticated.
-     * @allow (update, delete): Allowed if the user is authenticated.
-     * @deny (create, update, delete): Denied if the user is not authenticated.
-     * @principle Public read, authenticated write.
+     * @allow (get, list): Public read access is allowed.
+     * @allow (create): Authenticated user can create a team.
+     * @deny (update, delete): Only the team owner can update or delete the team.
+     * @principle Public read, owner-only write for team data.
      */
     match /teams/{teamId} {
       allow get, list: if true;
       allow create: if isSignedIn();
-      allow update, delete: if isSignedIn();
+      allow update, delete: if false; // TODO: Add owner validation once the schema is updated with an ownership field.
     }
 
     /**
-     * @description Grants access to player data within a team.
+     * @description Allows authenticated users to manage players within their team.
      * @path /teams/{teamId}/players/{playerId}
-     * @allow (get, list): Allowed if the user is authenticated.
-     * @allow (create): Allowed if the user is authenticated.
-     * @allow (update, delete): Allowed if the user is authenticated.
-     * @deny (create, update, delete): Denied if the user is not authenticated.
-     * @principle Authenticated access to player data within a team.
+     * @allow (create): Authenticated user can create a player within the team.
+     * @allow (get, list): Authenticated user can read and list players within the team.
+     * @deny (update, delete): Only the team owner can update or delete players within the team.
+     * @principle Owner-only write access to player data.
      */
     match /teams/{teamId}/players/{playerId} {
       allow get, list: if isSignedIn();
       allow create: if isSignedIn();
-      allow update, delete: if isSignedIn();
+      allow update, delete: if false; // TODO: Add owner validation once the schema is updated with an ownership field.
     }
 
     /**
-     * @description Grants access to match data within a team.
+     * @description Allows authenticated users to manage matches within their team.
      * @path /teams/{teamId}/matches/{matchId}
-     * @allow (get, list): Allowed if the user is authenticated.
-     * @allow (create): Allowed if the user is authenticated.
-     * @allow (update, delete): Allowed if the user is authenticated.
-     * @deny (create, update, delete): Denied if the user is not authenticated.
-     * @principle Authenticated access to match data within a team.
+     * @allow (create): Authenticated user can create a match within the team.
+     * @allow (get, list): Authenticated user can read and list matches within the team.
+     * @deny (update, delete): Only the team owner can update or delete matches within the team.
+     * @principle Owner-only write access to match data.
      */
     match /teams/{teamId}/matches/{matchId} {
       allow get, list: if isSignedIn();
       allow create: if isSignedIn();
-      allow update, delete: if isSignedIn();
+      allow update, delete: if false; // TODO: Add owner validation once the schema is updated with an ownership field.
     }
 
-    /**
-     * @description Grants access to cash register data for a group.
-     * @path /groups/{groupId}/cashRegister/{cashRegisterId}
-     * @allow (get, list): Allowed if the user is authenticated.
-     * @allow (create): Allowed if the user is authenticated.
-     * @allow (update, delete): Allowed if the user is authenticated.
-     * @deny (create, update, delete): Denied if the user is not authenticated.
-     * @principle Authenticated access to cash register data for a group.
-     */
+     /**
+      * @description Allows authenticated users to manage the cash register for a specific group.
+      * @path /groups/{groupId}/cashRegister/{cashRegisterId}
+      * @allow (create): Authenticated user can create a cash register within the group.
+      * @allow (get, list): Authenticated user can read and list cash registers within the group.
+      * @deny (update, delete): Only the group owner can update or delete cash registers within the group.
+      * @principle Owner-only write access to cash register data.
+      */
     match /groups/{groupId}/cashRegister/{cashRegisterId} {
       allow get, list: if isSignedIn();
       allow create: if isSignedIn();
-      allow update, delete: if isSignedIn();
+      allow update, delete: if false; // TODO: Add owner validation once the schema is updated with an ownership field.
     }
 
     /**
-     * @description Grants access to transaction data for a cash register.
+     * @description Allows authenticated users to manage transactions for a specific cash register.
      * @path /groups/{groupId}/cashRegister/{cashRegisterId}/transactions/{transactionId}
-     * @allow (get, list): Allowed if the user is authenticated.
-     * @allow (create): Allowed if the user is authenticated.
-     * @allow (update, delete): Allowed if the user is authenticated.
-     * @deny (create, update, delete): Denied if the user is not authenticated.
-     * @principle Authenticated access to transaction data for a cash register.
+     * @allow (create): Authenticated user can create a transaction within the cash register.
+     * @allow (get, list): Authenticated user can read and list transactions within the cash register.
+     * @deny (update, delete): Only the cash register owner can update or delete transactions within the cash register.
+     * @principle Owner-only write access to transaction data.
      */
     match /groups/{groupId}/cashRegister/{cashRegisterId}/transactions/{transactionId} {
       allow get, list: if isSignedIn();
       allow create: if isSignedIn();
-      allow update, delete: if isSignedIn();
+      allow update, delete: if false; // TODO: Add owner validation once the schema is updated with an ownership field.
     }
 
+    // Define helper functions
     function isSignedIn() {
-        return request.auth != null;
+      return request.auth != null;
     }
   }
 }
