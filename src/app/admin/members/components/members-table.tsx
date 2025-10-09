@@ -164,7 +164,7 @@ export function MembersTable({ allGroups }: MembersTableProps) {
         <div className="space-y-4">
              <div className="p-4 border rounded-lg space-y-4 bg-muted/50">
                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    <Select value={roleFilter} onValueChange={setRoleFilter}>
+                    <Select value={roleFilter} onValuechange={setRoleFilter}>
                         <SelectTrigger><SelectValue placeholder="Nach Rolle filtern..." /></SelectTrigger>
                         <SelectContent>
                             <SelectItem value="all">Alle Rollen</SelectItem>
@@ -173,14 +173,14 @@ export function MembersTable({ allGroups }: MembersTableProps) {
                             <SelectItem value="spieler">Spieler</SelectItem>
                         </SelectContent>
                     </Select>
-                     <Select value={parentGroupFilter} onValueChange={handleParentGroupChange}>
+                     <Select value={parentGroupFilter} onValuechange={handleParentGroupChange}>
                         <SelectTrigger><SelectValue placeholder="Nach Obergruppe filtern..." /></SelectTrigger>
                         <SelectContent>
                             <SelectItem value="all">Alle Obergruppen</SelectItem>
                             {parentGroups.map(g => <SelectItem key={g.id} value={g.id}>{g.name}</SelectItem>)}
                         </SelectContent>
                     </Select>
-                    <Select value={subGroupFilter} onValueChange={setSubGroupFilter} disabled={parentGroupFilter === 'all' || availableSubGroups.length === 0}>
+                    <Select value={subGroupFilter} onValuechange={setSubGroupFilter} disabled={parentGroupFilter === 'all' || availableSubGroups.length === 0}>
                         <SelectTrigger><SelectValue placeholder="Nach Untergruppe filtern..." /></SelectTrigger>
                         <SelectContent>
                             <SelectItem value="all">Alle Untergruppen</SelectItem>
@@ -313,6 +313,8 @@ export function MembersTable({ allGroups }: MembersTableProps) {
         </>
     );
 }
+
+    
 
     
 
