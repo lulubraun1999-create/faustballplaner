@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useFirestore, useDoc } from "@/firebase";
+import { useFirestore, useDoc, useMemoFirebase } from "@/firebase";
 import { useParams } from "next/navigation";
 import { doc } from "firebase/firestore";
 import { NewsArticle } from "@/app/admin/news/page";
@@ -18,7 +18,7 @@ export default function ArticleDetailPage() {
   const params = useParams();
   const articleId = params.id as string;
 
-  const articleRef = useMemo(() => {
+  const articleRef = useMemoFirebase(() => {
     if (!firestore || !articleId) return null;
     return doc(firestore, 'news', articleId);
   }, [firestore, articleId]);

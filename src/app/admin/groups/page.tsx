@@ -4,7 +4,7 @@
 import { useState, useMemo, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { useFirestore, useCollection } from '@/firebase';
+import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
 import { collection, query, where } from 'firebase/firestore';
 import { Header } from '@/components/shared/header';
 import { Loader2 } from 'lucide-react';
@@ -33,7 +33,7 @@ export default function GroupsPage() {
   const [shouldFetchMembers, setShouldFetchMembers] = useState(false);
 
   // Memoize the query to prevent re-renders
-  const groupsQuery = useMemo(() => {
+  const groupsQuery = useMemoFirebase(() => {
     if (!firestore) return null;
     return query(collection(firestore, 'groups'));
   }, [firestore]);
@@ -42,7 +42,7 @@ export default function GroupsPage() {
   const { data: allGroups, isLoading: isLoadingGroups } = useCollection<Group>(groupsQuery);
 
   // Fetch members only for the *selected* subgroup and if fetching is enabled
-  const membersQuery = useMemo(() => {
+  const membersQuery = useMemoFirebase(() => {
     if (!firestore || !selectedSubGroup || !shouldFetchMembers) return null;
     return query(collection(firestore, 'members'), where('groupIds', 'array-contains', selectedSubGroup.id));
   }, [firestore, selectedSubGroup, shouldFetchMembers]);

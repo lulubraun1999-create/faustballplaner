@@ -2,7 +2,7 @@
 "use client";
 
 import { ArticleCard } from '@/components/article-card';
-import { useUser, useAuth, useFirestore, useCollection } from '@/firebase';
+import { useUser, useAuth, useFirestore, useCollection, useMemoFirebase } from '@/firebase';
 import { useRouter } from 'next/navigation';
 import { useEffect, useMemo } from 'react';
 import { Header } from '@/components/shared/header';
@@ -21,7 +21,7 @@ export default function Home() {
   const { toast } = useToast();
 
   // The query will only be created when the user is authenticated and firestore is available.
-  const articlesQuery = useMemo(() => {
+  const articlesQuery = useMemoFirebase(() => {
     if (!firestore || !user) return null;
     return query(collection(firestore, 'news'), orderBy('createdAt', 'desc'));
   }, [firestore, user]);

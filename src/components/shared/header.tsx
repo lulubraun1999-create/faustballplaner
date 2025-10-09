@@ -12,7 +12,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { ThemeToggle } from '../theme-toggle';
 import { ChevronDown, LogOut, User as UserIcon, LogIn } from 'lucide-react';
-import { useAuth, useDoc, useFirestore, useUser } from '@/firebase';
+import { useAuth, useDoc, useFirestore, useUser, useMemoFirebase } from '@/firebase';
 import { useRouter } from 'next/navigation';
 import { doc } from 'firebase/firestore';
 import type { MemberProfile } from '@/app/admin/members/page';
@@ -24,7 +24,7 @@ export function Header() {
   const firestore = useFirestore();
   const router = useRouter();
 
-  const userProfileRef = useMemo(() => {
+  const userProfileRef = useMemoFirebase(() => {
     if (!firestore || !user) return null;
     return doc(firestore, 'users', user.uid);
   }, [firestore, user]);

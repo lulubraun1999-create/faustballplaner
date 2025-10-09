@@ -4,7 +4,7 @@
 import { useState, useMemo, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { useFirestore, useCollection, useUser } from '@/firebase';
+import { useFirestore, useCollection, useUser, useMemoFirebase } from '@/firebase';
 import { collection, query, where, doc, getDoc, setDoc, addDoc, serverTimestamp } from 'firebase/firestore';
 import { Header } from '@/components/shared/header';
 import { Loader2, Plus, Minus, Euro } from 'lucide-react';
@@ -197,7 +197,7 @@ export default function CashPage() {
     const firestore = useFirestore();
     const { user, isUserLoading } = useUser();
 
-    const groupsQuery = useMemo(() => {
+    const groupsQuery = useMemoFirebase(() => {
         if (!firestore || !user) return null;
         return query(collection(firestore, 'groups'), where('parentGroupId', '!=', null));
     }, [firestore, user]);
@@ -205,7 +205,7 @@ export default function CashPage() {
 
     const [selectedGroup, setSelectedGroup] = useState<Group | null>(null);
 
-    const cashRegisterQuery = useMemo(() => {
+    const cashRegisterQuery = useMemoFirebase(() => {
         if (!firestore || !selectedGroup) return null;
         return query(collection(firestore, 'groups', selectedGroup.id, 'cashRegister'));
     }, [firestore, selectedGroup]);
@@ -213,14 +213,14 @@ export default function CashPage() {
 
     const cashRegister = useMemo(() => cashRegisters?.[0], [cashRegisters]);
 
-    const transactionsQuery = useMemo(() => {
+    const transactionsQuery = useMemoFirebase(() => {
         if (!firestore || !selectedGroup || !cashRegister) return null;
         return query(collection(firestore, 'groups', selectedGroup.id, 'cashRegister', cashRegister.id, 'transactions'), where('amount', '>', 0));
     }, [firestore, selectedGroup, cashRegister]);
 
     const { data: transactions, isLoading: isLoadingTransactions, error } = useCollection<Transaction>(transactionsQuery);
 
-    const membersInGroupQuery = useMemo(() => {
+    const membersInGroupQuery = useMemoFirebase(() => {
         if (!firestore || !selectedGroup) return null;
         return query(collection(firestore, 'members'), where('groupIds', 'array-contains', selectedGroup.id));
     }, [firestore, selectedGroup]);

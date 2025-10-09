@@ -6,7 +6,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { PlusCircle, Edit, Trash2, MoreHorizontal, Loader2 } from "lucide-react";
 import Image from "next/image";
 import Link from 'next/link';
-import { useCollection, useFirestore } from "@/firebase";
+import { useCollection, useFirestore, useMemoFirebase } from "@/firebase";
 import { collection, query, orderBy, doc, deleteDoc } from "firebase/firestore";
 import { format } from 'date-fns';
 import { de } from 'date-fns/locale';
@@ -49,7 +49,7 @@ export default function NewsAdminPage() {
   const firestore = useFirestore();
   const { toast } = useToast();
 
-  const articlesQuery = useMemo(() => {
+  const articlesQuery = useMemoFirebase(() => {
       if (!firestore) return null;
       return query(collection(firestore, 'news'), orderBy('createdAt', 'desc'));
   }, [firestore]);
