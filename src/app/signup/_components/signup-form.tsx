@@ -20,6 +20,7 @@ import {
   sendEmailVerification,
   updateProfile,
 } from "firebase/auth";
+import { doc, setDoc } from "firebase/firestore";
 import { useRouter } from "next/navigation";
 import { useToast } from "@/hooks/use-toast";
 import React from "react";
@@ -37,6 +38,7 @@ const formSchema = z.object({
 
 export function SignUpForm() {
   const auth = useAuth();
+  const firestore = useFirestore();
   const router = useRouter();
   const { toast } = useToast();
   const [isPending, startTransition] = React.useTransition();
@@ -54,7 +56,7 @@ export function SignUpForm() {
 
   const onSubmit = (values: z.infer<typeof formSchema>) => {
     startTransition(async () => {
-      if (!auth) return;
+      if (!auth || !firestore) return;
       try {
         // Step 1: Create user with Firebase Auth
         const userCredential = await createUserWithEmailAndPassword(
@@ -69,28 +71,43 @@ export function SignUpForm() {
         await updateProfile(user, {
           displayName: displayName,
         });
-        
-        // Step 3: Send verification email
-        await sendEmailVerification(user);
 
-        // NOTE: All Firestore writes have been removed from this process.
-        // The user profile document will be created lazily when the user
-        // first logs in and visits their profile page.
+        // Step 3: Create user profile documents in Firestore
+        const userProfileData = {
+            id: user.uid,
+            vorname: values.vorname,
+            nachname: values.nachname,
+            name: displayName,
+            email: user.email,
+            adminRechte: false,
+            rolle: 'spieler', // default role
+            groupIds: [],
+        };
+        const userDocRef = doc(firestore, "users", user.uid);
+        const memberDocRef = doc(firestore, "members", user.uid);
+        
+        await setDoc(userDocRef, userProfileData, { merge: true });
+        await setDoc(memberDocRef, userProfileData, { merge: true });
+        
+        // Step 4: Send verification email
+        await sendEmailVerification(user);
 
         toast({
           title: "Registrierung erfolgreich",
           description: "Bitte überprüfen Sie Ihre E-Mails, um Ihr Konto zu bestätigen. Sie werden zum Login weitergeleitet.",
         });
 
-        // Step 4: Redirect to login. DO NOT sign out.
+        // Step 5: Redirect to login.
         router.push("/login");
 
       } catch (error: any) {
         let description = "Ein unerwarteter Fehler ist aufgetreten.";
         if (error.code === 'auth/email-already-in-use') {
             description = "Diese E-Mail-Adresse wird bereits verwendet.";
+        } else if (error.code === 'permission-denied') {
+            description = "Fehlende Berechtigung. Bitte überprüfen Sie die Sicherheitsregeln.";
         }
-        console.error("Registration Error:", error);
+        console.error("Registration Error:", error.code, error.message);
         toast({
           variant: "destructive",
           title: "Registrierung fehlgeschlagen",
