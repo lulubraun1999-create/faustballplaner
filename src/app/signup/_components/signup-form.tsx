@@ -56,6 +56,7 @@ export function SignUpForm() {
 
   const onSubmit = (values: z.infer<typeof formSchema>) => {
     startTransition(async () => {
+      if (!auth) return;
       try {
         const userCredential = await createUserWithEmailAndPassword(
           auth,
@@ -68,23 +69,6 @@ export function SignUpForm() {
         await updateProfile(user, {
           displayName: displayName,
         });
-
-        const userData = {
-          vorname: values.vorname,
-          nachname: values.nachname,
-          email: values.email,
-          name: displayName,
-          adminRechte: false, // Default admin rights to false
-        };
-
-        const userDocRef = doc(firestore, "users", user.uid);
-        const memberDocRef = doc(firestore, "members", user.uid);
-
-        // Write to both collections
-        await Promise.all([
-            setDoc(userDocRef, userData, { merge: true }),
-            setDoc(memberDocRef, userData, { merge: true })
-        ]);
         
         await sendEmailVerification(user);
 
@@ -100,6 +84,7 @@ export function SignUpForm() {
         if (error.code === 'auth/email-already-in-use') {
             description = "Diese E-Mail-Adresse wird bereits verwendet.";
         }
+        console.error("Registration Error:", error);
         toast({
           variant: "destructive",
           title: "Registrierung fehlgeschlagen",
