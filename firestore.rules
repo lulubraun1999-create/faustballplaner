@@ -2,45 +2,33 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-
-    // Helper function to check if a user is an admin
-    function isAdmin() {
-      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.adminRechte == true;
-    }
-
-    // Helper function to check if a user is the owner of a document
-    function isOwner(userId) {
-      return request.auth.uid == userId;
-    }
-
     match /users/{userId} {
-      allow read: if true;
-      allow write: if isOwner(userId) || isAdmin();
+      allow read, write: if request.auth != null && request.auth.uid == userId;
     }
-    
     match /members/{memberId} {
       allow read: if request.auth != null;
-      allow write: if isAdmin();
+      allow write: if request.auth != null && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.adminRechte == true;
     }
-
     match /groups/{groupId} {
       allow read: if request.auth != null;
-      allow write: if isAdmin();
+      allow write: if request.auth != null && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.adminRechte == true;
     }
-    
     match /news/{newsId} {
-      allow read: if true;
-      allow write: if isAdmin();
-    }
-
-    match /team-cash-transactions/{transactionId} {
       allow read: if request.auth != null;
-      allow write: if isAdmin();
+      allow write: if request.auth != null && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.adminRechte == true;
     }
-    
+    match /team-cash-transactions/{transactionId} {
+      // Allow any authenticated user to read any transaction
+      allow read: if request.auth != null;
+
+      // Allow write only if user is an admin or a member of the group
+      allow write: if request.auth != null && (
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.adminRechte == true ||
+        request.resource.data.groupId in get(/databases/$(database)/documents/users/$(request.auth.uid)).data.groupIds
+      );
+    }
     match /penalties/{penaltyId} {
-        allow read: if request.auth != null;
-        allow create, update, delete: if isAdmin();
+        allow read, write: if request.auth != null && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.adminRechte == true;
     }
   }
 }
