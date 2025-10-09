@@ -1,24 +1,25 @@
 'use client';
 
 import { firebaseConfig } from '@/firebase/config';
-import { initializeApp, getApp, type FirebaseApp } from 'firebase/app';
-import { getAuth } from 'firebase/auth';
-import { getFirestore } from 'firebase/firestore';
+import { initializeApp, getApp, getApps, type FirebaseApp } from 'firebase/app';
+import { getAuth, Auth } from 'firebase/auth';
+import { getFirestore, Firestore } from 'firebase/firestore';
 
 let app: FirebaseApp;
-try {
-  app = getApp();
-} catch (e) {
+if (!getApps().length) {
   app = initializeApp(firebaseConfig);
+} else {
+  app = getApp();
 }
 
-const firestore = getFirestore(app);
-const auth = getAuth(app);
+const firestore: Firestore = getFirestore(app);
+const auth: Auth = getAuth(app);
 
-// IMPORTANT: DO NOT MODIFY THIS FUNCTION
+// Export the initialized services directly.
+export { app as firebaseApp, auth, firestore };
+
+// IMPORTANT: DO NOT MODIFY THIS FUNCTION (it will be removed in subsequent steps)
 export function initializeFirebase() {
-  // This function now simply returns the already initialized services.
-  // The logic is handled at the module level to ensure it runs only once.
   return {
     firebaseApp: app,
     auth: auth,

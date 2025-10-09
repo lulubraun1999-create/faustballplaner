@@ -14,7 +14,7 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import { initializeFirebase } from "@/firebase";
+import { auth, firestore } from "@/firebase";
 import {
   createUserWithEmailAndPassword,
   sendEmailVerification,
@@ -54,16 +54,6 @@ export function SignUpForm() {
 
   const onSubmit = (values: z.infer<typeof formSchema>) => {
     startTransition(async () => {
-      // Explicitly initialize Firebase to ensure auth and firestore are ready.
-      const { auth, firestore } = initializeFirebase();
-      if (!auth || !firestore) {
-           toast({
-                variant: "destructive",
-                title: "Fehler",
-                description: "Firebase konnte nicht initialisiert werden.",
-           });
-           return;
-      }
       try {
         // Step 1: Create user with Firebase Auth
         const userCredential = await createUserWithEmailAndPassword(
@@ -93,7 +83,6 @@ export function SignUpForm() {
         const userDocRef = doc(firestore, "users", user.uid);
         const memberDocRef = doc(firestore, "members", user.uid);
         
-        // Use a batch write or individual writes
         await setDoc(userDocRef, userProfileData, { merge: true });
         await setDoc(memberDocRef, userProfileData, { merge: true });
         
@@ -125,7 +114,7 @@ export function SignUpForm() {
             description = "Netzwerkfehler. Bitte überprüfen Sie Ihre Internetverbindung.";
             break;
           case 'auth/api-key-not-valid':
-            description = "Der API-Schlüssel ist ungültig. Bitte kontaktieren Sie den Support.";
+            description = `Der API-Schlüssel ist ungültig. (${error.code})`;
             break;
           default:
             description = `Fehler: ${error.message} (${error.code})`;

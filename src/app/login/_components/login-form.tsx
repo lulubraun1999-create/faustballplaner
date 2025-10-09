@@ -14,7 +14,7 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import { useAuth, useUser, initializeFirebase } from "@/firebase";
+import { useUser, auth } from "@/firebase";
 import {
   sendEmailVerification,
   signInWithEmailAndPassword,
@@ -52,17 +52,6 @@ export function LoginForm() {
   }, [user, isUserLoading, router]);
 
   const onSubmit = (values: z.infer<typeof formSchema>) => {
-    // Explicitly initialize Firebase to ensure auth is ready.
-    const { auth } = initializeFirebase();
-    if (!auth) {
-        toast({
-            variant: "destructive",
-            title: "Fehler",
-            description: "Authentifizierungsdienst konnte nicht geladen werden.",
-        });
-        return;
-    };
-    
     startTransition(true);
     
     signInWithEmailAndPassword(auth, values.email, values.password)
