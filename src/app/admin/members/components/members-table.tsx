@@ -13,19 +13,14 @@ import { Button } from '@/components/ui/button';
 import { MoreHorizontal, Trash2, Edit, Loader2, Search } from 'lucide-react';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
-import { collection, query, where, writeBatch, doc } from 'firebase/firestore';
+import { collection, query, where, writeBatch, doc, orderBy } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { EditMemberModal } from './edit-member-modal';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { cn } from '@/lib/utils';
 import { deleteDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 
-
-interface MembersTableProps {
-    allGroups: Group[];
-}
-
-export function MembersTable({ allGroups }: MembersTableProps) {
+export function MembersTable() {
     const firestore = useFirestore();
     const { toast } = useToast();
     const [searchTerm, setSearchTerm] = useState('');
@@ -35,7 +30,6 @@ export function MembersTable({ allGroups }: MembersTableProps) {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [selectedMember, setSelectedMember] = useState<MemberProfile | null>(null);
 
-    // Initial query is now null, so no data is fetched on component mount
     const [activeQuery, setActiveQuery] = useState<any>(null);
     const [hasSearched, setHasSearched] = useState(false);
 
@@ -45,11 +39,19 @@ export function MembersTable({ allGroups }: MembersTableProps) {
     }, [firestore, activeQuery]);
 
     const { data: users, isLoading } = useCollection<MemberProfile>(membersQuery);
+    
+    // Fetch all groups only when needed
+    const groupsQuery = useMemoFirebase(() => {
+        if (!firestore) return null;
+        return query(collection(firestore, 'groups'), orderBy('name'));
+    }, [firestore]);
+    const { data: allGroups, isLoading: isLoadingGroups } = useCollection<Group>(groupsQuery);
 
-    const parentGroups = useMemo(() => allGroups.filter(g => !g.parentGroupId), [allGroups]);
+
+    const parentGroups = useMemo(() => allGroups?.filter(g => !g.parentGroupId) || [], [allGroups]);
     
     const availableSubGroups = useMemo(() => {
-        if (parentGroupFilter === 'all') return [];
+        if (parentGroupFilter === 'all' || !allGroups) return [];
         return allGroups.filter(g => g.parentGroupId === parentGroupFilter);
     }, [allGroups, parentGroupFilter]);
 
@@ -67,13 +69,11 @@ export function MembersTable({ allGroups }: MembersTableProps) {
 
         let groupIdsToFilter: string[] = [];
 
-        if (parentGroupFilter !== 'all') {
+        if (parentGroupFilter !== 'all' && allGroups) {
             if (subGroupFilter !== 'all') {
-                // If a specific subgroup is selected, filter by it directly
                 groupIdsToFilter.push(subGroupFilter);
             } else {
-                // If only a parent group is selected, find all its subgroups + the parent group itself
-                const subGroupIdsOfParent = availableSubGroups.map(sg => sg.id);
+                const subGroupIdsOfParent = allGroups.filter(g => g.parentGroupId === parentGroupFilter).map(sg => sg.id);
                 groupIdsToFilter = [parentGroupFilter, ...subGroupIdsOfParent];
             }
         }
@@ -85,14 +85,12 @@ export function MembersTable({ allGroups }: MembersTableProps) {
         if (filters.length > 0) {
              q = query(collection(firestore, 'members'), ...filters);
         } else {
-             // If no filters are selected, show all members
              q = query(collection(firestore, 'members'));
         }
 
         setActiveQuery(q);
     }
     
-    // Manual search term filtering on the client side after the query
     const filteredUsers = useMemo(() => {
         if (!users) return [];
         return users.filter(user => {
@@ -104,7 +102,7 @@ export function MembersTable({ allGroups }: MembersTableProps) {
 
 
     const getGroupNames = (groupIds: string[] | undefined): string[] => {
-        if (!groupIds || groupIds.length === 0) return [];
+        if (!groupIds || groupIds.length === 0 || !allGroups) return [];
         return groupIds.map(id => allGroups.find(g => g.id === id)?.name).filter((name): name is string => !!name);
     };
 
@@ -159,12 +157,12 @@ export function MembersTable({ allGroups }: MembersTableProps) {
             isOpen={isModalOpen}
             onClose={() => setIsModalOpen(false)}
             member={selectedMember}
-            groups={allGroups}
+            groups={allGroups || []}
         />
         <div className="space-y-4">
              <div className="p-4 border rounded-lg space-y-4 bg-muted/50">
                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    <Select value={roleFilter} onValuechange={setRoleFilter}>
+                    <Select value={roleFilter} onValueChange={setRoleFilter}>
                         <SelectTrigger><SelectValue placeholder="Nach Rolle filtern..." /></SelectTrigger>
                         <SelectContent>
                             <SelectItem value="all">Alle Rollen</SelectItem>
@@ -173,14 +171,14 @@ export function MembersTable({ allGroups }: MembersTableProps) {
                             <SelectItem value="spieler">Spieler</SelectItem>
                         </SelectContent>
                     </Select>
-                     <Select value={parentGroupFilter} onValuechange={handleParentGroupChange}>
-                        <SelectTrigger><SelectValue placeholder="Nach Obergruppe filtern..." /></SelectTrigger>
+                     <Select value={parentGroupFilter} onValueChange={handleParentGroupChange} disabled={isLoadingGroups}>
+                        <SelectTrigger><SelectValue placeholder={isLoadingGroups ? "Laden..." : "Nach Obergruppe filtern..."} /></SelectTrigger>
                         <SelectContent>
                             <SelectItem value="all">Alle Obergruppen</SelectItem>
                             {parentGroups.map(g => <SelectItem key={g.id} value={g.id}>{g.name}</SelectItem>)}
                         </SelectContent>
                     </Select>
-                    <Select value={subGroupFilter} onValuechange={setSubGroupFilter} disabled={parentGroupFilter === 'all' || availableSubGroups.length === 0}>
+                    <Select value={subGroupFilter} onValueChange={setSubGroupFilter} disabled={parentGroupFilter === 'all' || availableSubGroups.length === 0}>
                         <SelectTrigger><SelectValue placeholder="Nach Untergruppe filtern..." /></SelectTrigger>
                         <SelectContent>
                             <SelectItem value="all">Alle Untergruppen</SelectItem>
@@ -313,11 +311,3 @@ export function MembersTable({ allGroups }: MembersTableProps) {
         </>
     );
 }
-
-    
-
-    
-
-    
-
-    

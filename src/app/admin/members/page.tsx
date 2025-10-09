@@ -35,15 +35,8 @@ export interface Group {
 export default function MembersPage() {
     const firestore = useFirestore();
 
-    // We fetch all groups to populate the filters in the MembersTable.
-    const groupsQuery = useMemoFirebase(() => {
-      if (!firestore) return null;
-      return query(collection(firestore, 'groups'), orderBy('name'));
-    }, [firestore]);
-    const { data: groups, isLoading: isLoadingGroups } = useCollection<Group>(groupsQuery);
-    
     // The table component will handle fetching the members data itself.
-    const isLoading = isLoadingGroups;
+    const isLoading = false; // We are no longer loading groups here.
 
     return (
         <div className="flex min-h-screen flex-col">
@@ -58,7 +51,8 @@ export default function MembersPage() {
                             <Loader2 className="h-8 w-8 animate-spin text-primary" />
                         </div>
                     ) : (
-                        <MembersTable allGroups={groups || []} />
+                        // Pass a function to fetch groups on demand
+                        <MembersTable />
                     )}
                 </div>
             </main>
