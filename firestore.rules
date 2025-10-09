@@ -1,67 +1,79 @@
+
 rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-
-    // Helper functions
-    function isAuthed() {
+    
+    function isAuth() {
       return request.auth != null;
     }
-
+    
     function isAdmin() {
-      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.adminRechte == true;
+      return isAuth() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.adminRechte == true;
     }
 
-    function isOwner(userId) {
-      return request.auth.uid == userId;
+    function isMemberOfGroup(groupId) {
+      let userGroups = get(/databases/$(database)/documents/users/$(request.auth.uid)).data.groupIds;
+      return isAuth() && (groupId in userGroups);
     }
     
-    // USERS
+    // Default deny all
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Allow logged-in users to read/write their own user profile
     match /users/{userId} {
-      allow read;
-      allow write: if isOwner(userId) || isAdmin();
+      allow read, update, delete: if isAuth() && request.auth.uid == userId;
+      allow create: if isAuth();
     }
-    
-    // MEMBERS (publicly readable member profiles)
+
+    // Members are public, but only admins can change them
     match /members/{memberId} {
-      allow read;
-      allow write: if isAdmin();
-    }
-    
-    // GROUPS
-    match /groups/{groupId} {
-        allow read;
-        allow create, update, delete: if isAdmin();
-    }
-    
-    // NEWS
-    match /news/{articleId} {
-        allow read;
-        allow create, update, delete: if isAdmin();
-    }
-    
-    // SURVEYS
-    match /surveys/{surveyId} {
-      allow read: if isAuthed();
+      allow read: if isAuth();
       allow create, update, delete: if isAdmin();
+    }
+    
+    // Groups are public, but only admins can change them
+    match /groups/{groupId} {
+      allow read: if isAuth();
+      allow create, update, delete: if isAdmin();
+    }
+
+    // News are public, but only admins can change them
+    match /news/{newsId} {
+        allow read: if isAuth();
+        allow create, update, delete: if isAdmin();
+    }
+
+    // Team cash transactions:
+    // Allow any authenticated user to read all transactions.
+    // Admins and members of the specific group can create/update/delete.
+    match /team-cash-transactions/{transactionId} {
+        allow read: if isAuth();
+        allow create, update, delete: if isAdmin() || isMemberOfGroup(resource.data.groupId);
+    }
+
+    // Penalties
+    match /penalties/{penaltyId} {
+        allow read: if isAuth();
+        allow create, update, delete: if isAdmin();
+    }
+
+    // Surveys
+    match /surveys/{surveyId} {
+      allow read: if isAuth();
+      allow create, delete: if isAdmin();
+      
+      // Allow updates only for voting (updating options array) by authenticated users who are part of the target group (or if public)
+      allow update: if isAuth() && 
+                      (request.resource.data.keys().hasOnly(['options']) || 
+                       (isAdmin() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'question', 'expiresAt', 'archiveAt'])));
       
       match /responses/{responseId} {
-        allow read, create, delete: if isAuthed();
-        // Disallow updates to prevent tampering
-        allow update: if false;
+        allow read: if isAuth() && (responseId == request.auth.uid || isAdmin());
+        allow create, delete: if isAuth() && responseId == request.auth.uid;
       }
-    }
-
-    // TEAM-CASH-TRANSACTIONS
-    match /team-cash-transactions/{transactionId} {
-        allow read: if isAuthed();
-        allow create, update, delete: if isAdmin();
-    }
-    
-    // PENALTIES
-    match /penalties/{penaltyId} {
-        allow read: if isAuthed();
-        allow create, update, delete: if isAdmin();
     }
   }
 }
