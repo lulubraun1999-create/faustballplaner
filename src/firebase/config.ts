@@ -1,8 +1,8 @@
 export const firebaseConfig = {
-  "projectId": "faustball-794d7",
-  "appId": "1:935706979601:web:e3f656209c1352e461f6d3",
-  "storageBucket": "faustball-794d7.appspot.com",
-  "apiKey": "AIzaSyDo_1JgGe1aJ41jI-2o_9wPj1_35C4xPzQ",
-  "authDomain": "faustball-794d7.firebaseapp.com",
-  "messagingSenderId": "935706979601"
+  "projectId": "studio-5131389322-5af0a",
+  "appId": "1:32067277237:web:7a1ae0f7a1385d692b89fc",
+  "apiKey": "AIzaSyAz5xB9AJ54e0-HpwY9rW9jSWUJM3LEqnQ",
+  "authDomain": "studio-5131389322-5af0a.firebaseapp.com",
+  "measurementId": "",
+  "messagingSenderId": "32067277237"
 };

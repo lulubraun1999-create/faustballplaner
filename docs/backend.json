@@ -1,2 +1,161 @@
-
-{}
+{
+  "entities": {
+    "Team": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Team",
+      "type": "object",
+      "description": "Represents a Faustball team.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the team."
+        },
+        "name": {
+          "type": "string",
+          "description": "The name of the team."
+        },
+        "location": {
+          "type": "string",
+          "description": "The location of the team."
+        }
+      },
+      "required": [
+        "id",
+        "name"
+      ]
+    },
+    "Match": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Match",
+      "type": "object",
+      "description": "Represents a Faustball match between two teams.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the match."
+        },
+        "team1Id": {
+          "type": "string",
+          "description": "Reference to the first team in the match. (Relationship: Team 1:N Match)"
+        },
+        "team2Id": {
+          "type": "string",
+          "description": "Reference to the second team in the match. (Relationship: Team 1:N Match)"
+        },
+        "scoreTeam1": {
+          "type": "number",
+          "description": "The score of the first team."
+        },
+        "scoreTeam2": {
+          "type": "number",
+          "description": "The score of the second team."
+        },
+        "matchDate": {
+          "type": "string",
+          "description": "The date and time of the match.",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "team1Id",
+        "team2Id",
+        "scoreTeam1",
+        "scoreTeam2",
+        "matchDate"
+      ]
+    },
+    "Player": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Player",
+      "type": "object",
+      "description": "Represents a Faustball player.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the player."
+        },
+        "teamId": {
+          "type": "string",
+          "description": "Reference to the team the player belongs to. (Relationship: Team 1:N Player)"
+        },
+        "name": {
+          "type": "string",
+          "description": "The name of the player."
+        },
+        "position": {
+          "type": "string",
+          "description": "The player's position."
+        }
+      },
+      "required": [
+        "id",
+        "teamId",
+        "name"
+      ]
+    }
+  },
+  "auth": {
+    "providers": [
+      "password",
+      "anonymous"
+    ]
+  },
+  "firestore": {
+    "structure": [
+      {
+        "path": "/teams/{teamId}",
+        "definition": {
+          "entityName": "Team",
+          "schema": {
+            "$ref": "#/backend/entities/Team"
+          },
+          "description": "Stores team information. Documents are identified by a unique team ID.",
+          "params": [
+            {
+              "name": "teamId",
+              "description": "The unique identifier for the team."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/teams/{teamId}/players/{playerId}",
+        "definition": {
+          "entityName": "Player",
+          "schema": {
+            "$ref": "#/backend/entities/Player"
+          },
+          "description": "Stores player information associated with a specific team. Includes denormalized 'teamId' for authorization independence.",
+          "params": [
+            {
+              "name": "teamId",
+              "description": "The unique identifier for the team."
+            },
+            {
+              "name": "playerId",
+              "description": "The unique identifier for the player."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/matches/{matchId}",
+        "definition": {
+          "entityName": "Match",
+          "schema": {
+            "$ref": "#/backend/entities/Match"
+          },
+          "description": "Stores match information. Documents are identified by a unique match ID. Includes 'team1Id' and 'team2Id' for relationship purposes.",
+          "params": [
+            {
+              "name": "matchId",
+              "description": "The unique identifier for the match."
+            }
+          ]
+        }
+      }
+    ],
+    "reasoning": "The Firestore structure is designed to optimize for security, scalability, and maintainability, adhering to the principles of Authorization Independence, Structural Segregation, and Access Modeling. Teams, Players, and Matches are stored in separate top-level collections. Access control is managed at the document level, leveraging Firestore's security rules. Hierarchical paths are used for relationships, such as `Team 1:N Player` and `Team 1:N Match`, to simplify ownership and security rules.\n\n**Authorization Independence (Denormalization):**\nTo avoid `get()` calls in security rules and enable atomic operations, the `teamId` is duplicated inside the `Player` document.  This denormalization allows validating that a `Player` belongs to a given `Team` without needing to perform an additional read.  Similarly, the `team1Id` and `team2Id` are stored within the `Match` document.\n\n**Structural Segregation:**\nEach entity type (Team, Player, Match) resides in its own top-level collection, ensuring a homogeneous security posture within each collection.\n\n**Access Modeling:**\nPath-based ownership is used for entities with clear ownership (e.g., players belonging to a team). This simplifies security rules and ensures that only authorized users can access specific resources.  The structure also supports queries based on relationships (e.g., fetching all players for a given team).\n\n**QAPs (Rules are not Filters):**\nThe segregation of data into separate collections based on entity type allows for secure `list` operations. Security rules can be applied at the collection level to control access to all documents within the collection. This prevents the need to filter data based on access control criteria, ensuring that only authorized data is returned in queries."
+  }
+}
