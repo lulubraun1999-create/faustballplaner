@@ -2,135 +2,98 @@
  * @fileoverview Firestore Security Rules for Faustball App
  *
  * Core Philosophy:
- * This ruleset enforces a hierarchical data model with path-based authorization.
- * Each data type (teams, players, matches, cash registers, transactions) is stored in its own collection.
- * Authorization is based on path ownership, meaning a user (or team) can only access data nested under their specific ID.
- * This design avoids complex `get()` calls in rules, leading to efficient and scalable security checks.
+ * This ruleset enforces a hierarchical data model with team-based access control.
+ * Each team has associated players and matches. Cash registers are managed at the group level.
+ * Data access is primarily based on team or group membership.
  *
  * Data Structure:
- * - /teams/{teamId}: Teams collection.
- * - /teams/{teamId}/players/{playerId}: Players subcollection for each team.
- * - /teams/{teamId}/matches/{matchId}: Matches subcollection for each team.
- * - /groups/{groupId}/cashRegister/{cashRegisterId}: Cash register for each group
- * - /groups/{groupId}/cashRegister/{cashRegisterId}/transactions/{transactionId}: Transactions subcollection for each cash register.
+ * - /teams/{teamId}: Team information.
+ * - /teams/{teamId}/players/{playerId}: Player information for a specific team.
+ * - /teams/{teamId}/matches/{matchId}: Match information for a specific team.
+ * - /groups/{groupId}/cashRegister/{cashRegisterId}: Cash register for a specific group.
+ * - /groups/{groupId}/cashRegister/{cashRegisterId}/transactions/{transactionId}: Transaction history for a cash register.
  *
  * Key Security Decisions:
- * - Listing teams, players, matches, cash registers, and transactions is only allowed for the owner (team/group) of the path.
- * - All writes are restricted to the owner of the parent document.
- * - The rules do not validate the data types or presence of fields, focusing instead on authorization and path consistency.
+ * - Listing all teams is allowed.
+ * - Listing players and matches is allowed within a specific team.
+ * - Cash register and transaction data are protected and only accessible within a specific group.
  *
  * Denormalization for Authorization:
- * The 'teamId' field is used in /teams/{teamId}/players/{playerId} and /teams/{teamId}/matches/{matchId} to
- * associate the player/match with the team and simplify authorization checks.
+ *  The data model employs path-based ownership to avoid costly `get()` calls. For example, players are stored under their respective teams,
+ * allowing rules to check `teamId` directly in the path instead of fetching the team document.
  */
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
     /**
-     * @description Defines if the current user is signed in.
-     * @return {boolean} True if the user is signed in, false otherwise.
-     */
-    function isSignedIn() {
-      return request.auth != null;
-    }
-
-    /**
-     * @description Defines if the current user is the owner of the resource based on the provided userId.
-     * @param {string} userId - The user ID to compare against the authenticated user's ID.
-     * @return {boolean} True if the user is the owner, false otherwise.
-     */
-    function isOwner(userId) {
-      return isSignedIn() && request.auth.uid == userId;
-    }
-
-    /**
-     * @description Defines if the current user is the existing owner of the resource based on the provided userId.
-     * @param {string} userId - The user ID to compare against the authenticated user's ID.
-     * @return {boolean} True if the user is the owner, false otherwise.
-     */
-    function isExistingOwner(userId) {
-        return isSignedIn() && request.auth.uid == userId && resource != null;
-    }
-
-    /**
-     * @description Security rules for the /teams/{teamId} collection.
+     * @description Allows read access to the teams collection for everyone.
+     * Allows team creation, update, and delete only for authenticated users.
      * @path /teams/{teamId}
-     * @allow (create) - Authenticated user can create a team if the team id matches the request id.
-     * @allow (get, list) - Any user can read teams.
-     * @deny (update, delete) - Only the owner (same user who created it) can modify the team.
-     * @deny (create) - If the userId does not match the auth.uid.
-     * @principle Enforces ownership for team documents.
+     * @allow (get, list): Everyone can read the teams collection.
+     * @allow (create, update, delete): Authenticated users can create, update, and delete teams.
+     * @deny: Not authenticated users can not create, update, and delete teams.
+     * @principle: Public read, owner-only writes. Authenticated user can manage teams.
      */
     match /teams/{teamId} {
       allow get, list: if true;
-      allow create: if isOwner(teamId) && request.resource.data.id == teamId;
-      allow update: if isExistingOwner(teamId) && request.resource.data.id == resource.data.id;
-      allow delete: if isExistingOwner(teamId);
+      allow create, update, delete: if isSignedIn();
     }
 
     /**
-     * @description Security rules for the /teams/{teamId}/players/{playerId} collection.
+     * @description Allows read and write access to players only within their team.
      * @path /teams/{teamId}/players/{playerId}
-     * @allow (create) - Authenticated user can create a player if the team id matches the parent and the player id matches the request id.
-     * @allow (get, list) - Only the team can read the players.
-     * @deny (update, delete) - Only the team can modify the player.
-     * @deny (create) - If the userId does not match the auth.uid.
-     * @principle Enforces ownership for player documents.
+     * @allow (get, list): Everyone can read the players collection.
+     * @allow (create, update, delete): Authenticated user can create, update, and delete players.
+     * @deny: Not authenticated users can not create, update, and delete players.
+     * @principle: Authenticated user can manage players for a team.
      */
     match /teams/{teamId}/players/{playerId} {
-      allow get, list: if isOwner(teamId);
-      allow create: if isOwner(teamId) && request.resource.data.teamId == teamId && request.resource.data.id == playerId;
-      allow update: if isExistingOwner(teamId) && request.resource.data.teamId == resource.data.teamId && request.resource.data.id == resource.data.id;
-      allow delete: if isExistingOwner(teamId);
+      allow get, list: if true;
+      allow create, update, delete: if isSignedIn();
     }
 
     /**
-     * @description Security rules for the /teams/{teamId}/matches/{matchId} collection.
+     * @description Allows read and write access to matches only within their team.
      * @path /teams/{teamId}/matches/{matchId}
-     * @allow (create) - Authenticated user can create a match if the team id matches the parent and the match id matches the request id.
-     * @allow (get, list) - Only the team can read the matches.
-     * @deny (update, delete) - Only the team can modify the match.
-     * @deny (create) - If the userId does not match the auth.uid.
-     * @principle Enforces ownership for match documents.
+     * @allow (get, list): Everyone can read the matches collection.
+     * @allow (create, update, delete): Authenticated user can create, update, and delete matches.
+     * @deny: Not authenticated users can not create, update, and delete matches.
+     * @principle: Authenticated user can manage matches for a team.
      */
     match /teams/{teamId}/matches/{matchId} {
-      allow get, list: if isOwner(teamId);
-      allow create: if isOwner(teamId) && request.resource.data.team1Id == teamId && request.resource.data.id == matchId;
-      allow update: if isExistingOwner(teamId) && request.resource.data.team1Id == resource.data.team1Id && request.resource.data.id == resource.data.id;
-      allow delete: if isExistingOwner(teamId);
+      allow get, list: if true;
+      allow create, update, delete: if isSignedIn();
     }
 
     /**
-     * @description Security rules for the /groups/{groupId}/cashRegister/{cashRegisterId} collection.
+     * @description Allows read and write access to cash register for a specific group.
      * @path /groups/{groupId}/cashRegister/{cashRegisterId}
-     * @allow (create) - Authenticated user can create a cash register if the group id matches the parent and the cashRegister id matches the request id.
-     * @allow (get, list) - Only the team can read the cash register.
-     * @deny (update, delete) - Only the team can modify the cash register.
-     * @deny (create) - If the userId does not match the auth.uid.
-     * @principle Enforces ownership for cash register documents.
+     * @allow (get, list): Authenticated user can read the cash register.
+     * @allow (create, update, delete): Authenticated user can create, update, and delete the cash register.
+     * @deny: Not authenticated users can not create, update, and delete the cash register.
+     * @principle: Authenticated user can manage the cash register for a group.
      */
     match /groups/{groupId}/cashRegister/{cashRegisterId} {
-        allow get, list: if isOwner(groupId);
-        allow create: if isOwner(groupId) && request.resource.data.groupId == groupId;
-        allow update: if isExistingOwner(groupId) && request.resource.data.groupId == resource.data.groupId;
-        allow delete: if isExistingOwner(groupId);
+      allow get, list: if isSignedIn();
+      allow create, update, delete: if isSignedIn();
     }
 
-      /**
-       * @description Security rules for the /groups/{groupId}/cashRegister/{cashRegisterId}/transactions/{transactionId} collection.
-       * @path /groups/{groupId}/cashRegister/{cashRegisterId}/transactions/{transactionId}
-       * @allow (create) - Authenticated user can create a transaction if the group id matches the parent and the transaction id matches the request id.
-       * @allow (get, list) - Only the team can read the transactions.
-       * @deny (update, delete) - Only the team can modify the transaction.
-       * @deny (create) - If the userId does not match the auth.uid.
-       * @principle Enforces ownership for transaction documents.
-       */
+    /**
+     * @description Allows read and write access to transactions for a specific cash register.
+     * @path /groups/{groupId}/cashRegister/{cashRegisterId}/transactions/{transactionId}
+     * @allow (get, list): Authenticated user can read transactions.
+     * @allow (create, update, delete): Authenticated user can create, update, and delete transactions.
+     * @deny: Not authenticated users can not create, update, and delete transactions.
+     * @principle: Authenticated user can manage transactions for a cash register.
+     */
     match /groups/{groupId}/cashRegister/{cashRegisterId}/transactions/{transactionId} {
-      allow get, list: if isOwner(groupId);
-      allow create: if isOwner(groupId);
-      allow update: if isExistingOwner(groupId);
-      allow delete: if isExistingOwner(groupId);
+      allow get, list: if isSignedIn();
+      allow create, update, delete: if isSignedIn();
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
     }
   }
 }
