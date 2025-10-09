@@ -16,7 +16,6 @@ import {
 import { Input } from "@/components/ui/input";
 import { useAuth, useUser } from "@/firebase";
 import {
-  signInWithEmailAndPassword,
   sendEmailVerification,
 } from "firebase/auth";
 import { useRouter } from "next/navigation";
@@ -84,28 +83,12 @@ export function LoginForm() {
     if (!auth) return;
     initiateEmailSignIn(auth, values.email, values.password);
 
-    // This part is tricky because we don't have the userCredential anymore.
-    // We rely on the onAuthStateChanged listener to redirect.
-    // We can show a toast indicating that login is in progress.
     toast({
         title: "Anmeldung...",
         description: "Sie werden angemeldet.",
     });
-
-    // We can't reliably detect the "email not verified" case here without `await`.
-    // The logic inside `useEffect` and `onAuthStateChanged` becomes more important.
-    // A possible improvement would be a global listener that checks verification status.
   };
 
-  if (isUserLoading || (user && user.emailVerified)) {
-    return (
-      <div className="flex items-center justify-center h-full">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-      </div>
-    );
-  }
-  
-   // This effect will run when `user` changes via `onAuthStateChanged`
   useEffect(() => {
     if (user && !user.emailVerified && !isUserLoading) {
         toast({
@@ -115,11 +98,18 @@ export function LoginForm() {
         });
         setEmailForResend(user.email || '');
         setShowResend(true);
-        // We don't sign out, to allow resending the verification email.
     }
   }, [user, isUserLoading, toast]);
 
 
+  if (isUserLoading || (user && user.emailVerified)) {
+    return (
+      <div className="flex items-center justify-center h-full">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+  
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="grid gap-4">
