@@ -70,16 +70,6 @@ export function SignupForm() {
 
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
     startTransition(true);
-
-    if (!auth || !firestore) {
-        toast({
-            variant: 'destructive',
-            title: 'Registrierung fehlgeschlagen',
-            description: 'Firebase ist nicht initialisiert. Bitte laden Sie die Seite neu.',
-        });
-        startTransition(false);
-        return;
-    }
     
     if (values.registrationCode !== 'Ellaisttoll') {
         toast({
