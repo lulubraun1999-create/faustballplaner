@@ -49,6 +49,9 @@ export function Header() {
             <Link href="/">Aktuelles</Link>
           </Button>
           <Button variant="ghost" asChild>
+            <Link href="/surveys">Umfragen</Link>
+          </Button>
+          <Button variant="ghost" asChild>
             <Link href="/chat">Chat</Link>
           </Button>
           {hasAdminRights && (
