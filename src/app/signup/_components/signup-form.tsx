@@ -15,7 +15,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useUser, setDocumentNonBlocking } from '@/firebase';
-import { initializeApp, getApps } from 'firebase/app';
+import { initializeApp, getApps, getApp } from 'firebase/app';
 import { getAuth, createUserWithEmailAndPassword, updateProfile } from 'firebase/auth';
 import { getFirestore, doc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
@@ -23,6 +23,7 @@ import { useRouter } from 'next/navigation';
 import { useState, useEffect } from 'react';
 import { Loader2 } from 'lucide-react';
 import Link from 'next/link';
+import { firebaseConfig } from '@/firebase/config';
 
 const formSchema = z
   .object({
@@ -70,7 +71,8 @@ export function SignupForm() {
     startTransition(true);
 
     try {
-      const app = getApps().length === 0 ? initializeApp() : getApps()[0];
+      // Initialize Firebase directly here, ignoring any potentially broken global instances.
+      const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
       const auth = getAuth(app);
       const firestore = getFirestore(app);
 
@@ -97,9 +99,9 @@ export function SignupForm() {
       const userDocRef = doc(firestore, 'users', newUser.uid);
       const memberDocRef = doc(firestore, 'members', newUser.uid);
 
+      // These are non-blocking writes
       setDocumentNonBlocking(userDocRef, userDocData, { merge: true });
       setDocumentNonBlocking(memberDocRef, userDocData, { merge: true });
-
 
       toast({
         title: 'Registrierung erfolgreich',
@@ -121,7 +123,7 @@ export function SignupForm() {
             break;
           case 'auth/invalid-api-key':
           case 'auth/api-key-not-valid':
-             description = `Der API-Schlüssel ist ungültig. Bitte versuchen Sie es später erneut. (${error.code})`;
+             description = `Die Firebase-Verbindung ist fehlerhaft. (${error.code})`;
              break;
           default:
             console.error('Registration Error:', error);
@@ -236,19 +238,6 @@ export function SignupForm() {
               )}
             </div>
           </div>
-            <div className="grid gap-2">
-              <Label htmlFor="registrationCode">Registrierungscode (optional)</Label>
-              <Controller
-                name="registrationCode"
-                control={control}
-                render={({ field }) => <Input id="registrationCode" type="text" {...field} placeholder="Code vom Verein" />}
-              />
-              {errors.registrationCode && (
-                <p className="text-sm font-medium text-destructive">
-                  {errors.registrationCode.message}
-                </p>
-              )}
-            </div>
         </CardContent>
         <CardFooter className="flex flex-col gap-4">
           <Button type="submit" className="w-full" disabled={isPending}>
