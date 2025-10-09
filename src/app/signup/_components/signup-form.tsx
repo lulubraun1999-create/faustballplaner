@@ -71,6 +71,16 @@ export function SignupForm() {
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
     startTransition(true);
 
+    if (!auth || !firestore) {
+        toast({
+            variant: 'destructive',
+            title: 'Registrierung fehlgeschlagen',
+            description: 'Firebase ist nicht initialisiert. Bitte laden Sie die Seite neu.',
+        });
+        startTransition(false);
+        return;
+    }
+    
     if (values.registrationCode !== 'Ellaisttoll') {
         toast({
             variant: 'destructive',
@@ -117,6 +127,8 @@ export function SignupForm() {
         description = 'Diese E-Mail-Adresse wird bereits verwendet.';
       } else if (error.code === 'auth/invalid-api-key' || error.code === 'auth/api-key-not-valid') {
         description = 'Der API-Schlüssel ist ungültig. Bitte kontaktieren Sie den Support.';
+      } else {
+        console.error('Registration Error:', error);
       }
       toast({
         variant: 'destructive',
