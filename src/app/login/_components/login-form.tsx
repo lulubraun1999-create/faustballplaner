@@ -17,12 +17,12 @@ import { Input } from "@/components/ui/input";
 import { useAuth, useUser } from "@/firebase";
 import {
   sendEmailVerification,
+  signInWithEmailAndPassword,
 } from "firebase/auth";
 import { useRouter } from "next/navigation";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2 } from "lucide-react";
 import React, { useEffect, useState } from "react";
-import { initiateEmailSignIn } from "@/firebase/non-blocking-login";
 
 const formSchema = z.object({
   email: z.string().email({ message: "Ungültige E-Mail-Adresse." }),
@@ -34,9 +34,7 @@ export function LoginForm() {
   const router = useRouter();
   const { toast } = useToast();
   const { user, isUserLoading } = useUser();
-  const [isPending, startTransition] = React.useTransition();
-  const [showResend, setShowResend] = useState(false);
-  const [emailForResend, setEmailForResend] = useState("");
+  const [isPending, startTransition] = useState(false);
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -45,7 +43,7 @@ export function LoginForm() {
       password: "",
     },
   });
-
+  
   useEffect(() => {
     if (!isUserLoading && user) {
         if (user.emailVerified) {
@@ -54,55 +52,61 @@ export function LoginForm() {
     }
   }, [user, isUserLoading, router]);
 
-  const handleResendVerification = async () => {
-    if (!auth?.currentUser) {
-        toast({
-            variant: "destructive",
-            title: "Fehler",
-            description: "Es wurde kein Benutzer gefunden, für den eine E-Mail gesendet werden kann. Bitte versuchen Sie sich erneut anzumelden."
-        });
-        return;
-    }
-    try {
-        await sendEmailVerification(auth.currentUser);
-        toast({
-            title: "E-Mail gesendet",
-            description: "Eine neue Bestätigungs-E-Mail wurde an Ihre Adresse gesendet. Bitte überprüfen Sie Ihr Postfach."
-        });
-        setShowResend(false);
-    } catch (error) {
-        toast({
-            variant: "destructive",
-            title: "Senden fehlgeschlagen",
-            description: "Die Bestätigungs-E-Mail konnte nicht gesendet werden. Bitte versuchen Sie es später erneut."
-        });
-    }
-  };
-
   const onSubmit = (values: z.infer<typeof formSchema>) => {
     if (!auth) return;
-    initiateEmailSignIn(auth, values.email, values.password);
-
-    toast({
-        title: "Anmeldung...",
-        description: "Sie werden angemeldet.",
-    });
+    
+    startTransition(true);
+    
+    signInWithEmailAndPassword(auth, values.email, values.password)
+      .then((userCredential) => {
+        const user = userCredential.user;
+        if (user.emailVerified) {
+          toast({
+            title: "Anmeldung erfolgreich",
+            description: "Sie werden weitergeleitet.",
+          });
+          router.push("/");
+        } else {
+          sendEmailVerification(user);
+          toast({
+            variant: "destructive",
+            title: "E-Mail nicht verifiziert",
+            description: "Bitte überprüfen Sie Ihr Postfach. Eine neue Bestätigungs-E-Mail wurde gesendet.",
+          });
+        }
+      })
+      .catch((error) => {
+        let description = "Ein unerwarteter Fehler ist aufgetreten.";
+        switch (error.code) {
+          case 'auth/user-not-found':
+          case 'auth/wrong-password':
+          case 'auth/invalid-credential':
+            description = "Falsche E-Mail-Adresse oder falsches Passwort.";
+            break;
+          case 'auth/invalid-email':
+            description = "Die E-Mail-Adresse ist ungültig.";
+            break;
+          case 'auth/api-key-not-valid':
+             description = `Der API-Schlüssel ist ungültig. (${error.code})`;
+             break;
+          case 'auth/network-request-failed':
+             description = `Netzwerkfehler. Bitte überprüfen Sie Ihre Verbindung. (${error.code})`;
+             break;
+          default:
+            description = `Fehler: ${error.message} (${error.code})`;
+        }
+        toast({
+          variant: "destructive",
+          title: "Anmeldung fehlgeschlagen",
+          description,
+        });
+      })
+      .finally(() => {
+        startTransition(false);
+      });
   };
 
-  useEffect(() => {
-    if (user && !user.emailVerified && !isUserLoading) {
-        toast({
-            variant: "destructive",
-            title: "Anmeldung fehlgeschlagen",
-            description: "Bitte bestätigen Sie zuerst Ihre E-Mail-Adresse.",
-        });
-        setEmailForResend(user.email || '');
-        setShowResend(true);
-    }
-  }, [user, isUserLoading, toast]);
-
-
-  if (isUserLoading || (user && user.emailVerified)) {
+  if (isUserLoading) {
     return (
       <div className="flex items-center justify-center h-full">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -143,14 +147,6 @@ export function LoginForm() {
           {isPending ? <Loader2 className="animate-spin" /> : "Login"}
         </Button>
       </form>
-      {showResend && (
-        <div className="mt-4 text-center">
-            <p className="text-sm text-muted-foreground mb-2">Ihre E-Mail ist nicht bestätigt.</p>
-            <Button variant="outline" onClick={handleResendVerification} className="w-full">
-                Bestätigungs-E-Mail erneut senden
-            </Button>
-        </div>
-      )}
     </Form>
   );
 }
