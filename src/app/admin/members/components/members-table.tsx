@@ -35,8 +35,21 @@ export function MembersTable({ allGroups }: MembersTableProps) {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [selectedMember, setSelectedMember] = useState<MemberProfile | null>(null);
 
-    // This state will trigger the query
-    const [activeQuery, setActiveQuery] = useState<any>(null);
+    // Initial query to fetch all members, set immediately.
+    const initialQuery = useMemoFirebase(() => {
+        if (!firestore) return null;
+        return query(collection(firestore, 'members'));
+    }, [firestore]);
+
+    const [activeQuery, setActiveQuery] = useState<any>(initialQuery);
+    
+    // When firestore is ready, set the active query to the initial query
+    useEffect(() => {
+        if (initialQuery && !activeQuery) {
+            setActiveQuery(initialQuery);
+        }
+    }, [initialQuery, activeQuery]);
+
 
     const membersQuery = useMemoFirebase(() => {
         if (!firestore || !activeQuery) return null;
@@ -79,18 +92,12 @@ export function MembersTable({ allGroups }: MembersTableProps) {
         if (groupIdsToFilter.length > 0) {
             filters.push(where('groupIds', 'array-contains-any', groupIdsToFilter));
         }
-
         
         if (filters.length > 0) {
              q = query(collection(firestore, 'members'), ...filters);
         } else {
-             toast({
-                 variant: "destructive",
-                 title: "Filter erforderlich",
-                 description: "Bitte wählen Sie mindestens einen Filter (Rolle oder Gruppe), um Mitglieder zu suchen."
-             });
-             setActiveQuery(null); // Explicitly set query to null
-             return; // Stop execution
+             // If no filters are selected, show all members
+             q = query(collection(firestore, 'members'));
         }
 
         setActiveQuery(q);
@@ -102,7 +109,7 @@ export function MembersTable({ allGroups }: MembersTableProps) {
         return users.filter(user => {
             const name = `${user.vorname || ''} ${user.nachname || ''}`.toLowerCase();
             const search = searchTerm.toLowerCase();
-            return name.includes(search) || user.email.toLowerCase().includes(search);
+            return name.includes(search) || (user.email && user.email.toLowerCase().includes(search));
         })
     }, [users, searchTerm]);
 
@@ -306,7 +313,7 @@ export function MembersTable({ allGroups }: MembersTableProps) {
                          )}) : (
                             <TableRow>
                                 <TableCell colSpan={10} className="h-24 text-center">
-                                    {activeQuery ? "Keine Mitglieder für die ausgewählten Filter gefunden." : "Bitte wählen Sie Filter aus und klicken Sie auf 'Suchen', um Mitglieder anzuzeigen."}
+                                    {activeQuery ? "Keine Mitglieder für die ausgewählten Filter gefunden." : "Mitglieder werden geladen..."}
                                 </TableCell>
                             </TableRow>
                         )}

@@ -35,17 +35,14 @@ export interface Group {
 export default function MembersPage() {
     const firestore = useFirestore();
 
-    // IMPORTANT: We no longer fetch all users here by default.
-    // The filtering logic inside MembersTable will be responsible for fetching data.
-    // We will, however, fetch all groups to populate the filters.
-
+    // We fetch all groups to populate the filters in the MembersTable.
     const groupsQuery = useMemoFirebase(() => {
       if (!firestore) return null;
       return query(collection(firestore, 'groups'), orderBy('name'));
     }, [firestore]);
     const { data: groups, isLoading: isLoadingGroups } = useCollection<Group>(groupsQuery);
     
-    // We pass an empty array for users initially. The table component will handle fetching.
+    // The table component will handle fetching the members data itself.
     const isLoading = isLoadingGroups;
 
     return (
