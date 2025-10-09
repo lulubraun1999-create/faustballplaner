@@ -163,31 +163,20 @@ export default function TeamCashPage() {
     const [editingTransaction, setEditingTransaction] = useState<TeamCashTransaction | null>(null);
     const [selectedSubGroupId, setSelectedSubGroupId] = useState<string | null>(null);
 
-    // Fetch only groups where the current user is a member
-    const userGroupsQuery = useMemoFirebase(() => {
-        if (!firestore || !user) return null;
-        return query(collection(firestore, 'groups'), where('id', 'in', user.providerData.map(p => p.uid)));
-    }, [firestore, user]);
-    const { data: userGroups, isLoading: isLoadingUserGroups } = useCollection<Group>(userGroupsQuery);
+    // Fetch only sub-groups
+    const subGroupsQuery = useMemoFirebase(() => {
+        if (!firestore) return null;
+        return query(collection(firestore, 'groups'), where('parentGroupId', '!=', null), orderBy('name'));
+    }, [firestore]);
+    const { data: subGroups, isLoading: isLoadingSubGroups } = useCollection<Group>(subGroupsQuery);
 
-    const allGroupsQuery = useMemoFirebase(() => firestore ? query(collection(firestore, 'groups')) : null, [firestore]);
-    const { data: allGroups, isLoading: isLoadingAllGroups } = useCollection<Group>(allGroupsQuery);
-
-    const subGroups = useMemo(() => allGroups?.filter(g => g.parentGroupId).sort((a, b) => a.name.localeCompare(b.name)) || [], [allGroups]);
-    
-    // This effect is removed to prevent auto-selection
-    // useEffect(() => {
-    //     if (selectedSubGroupId === null && subGroups.length > 0) {
-    //         setSelectedSubGroupId(subGroups[0].id);
-    //     }
-    // }, [subGroups, selectedSubGroupId]);
 
     const handleEditTransaction = (transaction: TeamCashTransaction) => {
         setEditingTransaction(transaction);
     };
 
-    const isLoading = isLoadingAllGroups;
-    const selectedSubGroupName = useMemo(() => subGroups.find(g => g.id === selectedSubGroupId)?.name || '', [subGroups, selectedSubGroupId]);
+    const isLoading = isLoadingSubGroups;
+    const selectedSubGroupName = useMemo(() => subGroups?.find(g => g.id === selectedSubGroupId)?.name || '', [subGroups, selectedSubGroupId]);
 
 
     if (isAdding) {
@@ -198,7 +187,7 @@ export default function TeamCashPage() {
                     <div className="container mx-auto px-4 py-8 md:py-12">
                         <AddTransactionForm 
                             onClose={() => setIsAdding(false)} 
-                            subGroups={subGroups}
+                            subGroups={subGroups || []}
                             initialGroupId={selectedSubGroupId}
                         />
                     </div>
@@ -221,7 +210,7 @@ export default function TeamCashPage() {
                                     Strafenkatalog
                                 </Link>
                             </Button>
-                            <Button variant="outline" onClick={() => setIsAdding(true)} disabled={subGroups.length === 0}>
+                            <Button variant="outline" onClick={() => setIsAdding(true)} disabled={!subGroups || subGroups.length === 0}>
                                 <PlusCircle className="mr-2 h-4 w-4" />
                                 Transaktion hinzufügen
                             </Button>
@@ -234,7 +223,7 @@ export default function TeamCashPage() {
                          </div>
                     ) : (
                         <div className="space-y-6">
-                           {subGroups.length > 0 ? (
+                           {subGroups && subGroups.length > 0 ? (
                             <>
                                 <div className="max-w-xs space-y-2">
                                     <Label htmlFor="group-select">Mannschaft auswählen</Label>
@@ -277,7 +266,7 @@ export default function TeamCashPage() {
                         </div>
                     )}
                 </div>
-                 {editingTransaction && (
+                 {editingTransaction && subGroups && (
                     <EditTransactionForm
                         transaction={editingTransaction}
                         subGroups={subGroups}

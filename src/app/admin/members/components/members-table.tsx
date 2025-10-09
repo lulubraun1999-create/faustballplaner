@@ -43,8 +43,9 @@ export function MembersTable() {
     // Fetch all groups only when needed
     const groupsQuery = useMemoFirebase(() => {
         if (!firestore) return null;
-        return query(collection(firestore, 'groups'), orderBy('name'));
-    }, [firestore]);
+        // Only fetch if search has been initiated to prevent initial load error
+        return hasSearched ? query(collection(firestore, 'groups'), orderBy('name')) : null;
+    }, [firestore, hasSearched]);
     const { data: allGroups, isLoading: isLoadingGroups } = useCollection<Group>(groupsQuery);
 
 
@@ -171,14 +172,14 @@ export function MembersTable() {
                             <SelectItem value="spieler">Spieler</SelectItem>
                         </SelectContent>
                     </Select>
-                     <Select value={parentGroupFilter} onValueChange={handleParentGroupChange} disabled={isLoadingGroups}>
+                     <Select value={parentGroupFilter} onValueChange={handleParentGroupChange} disabled={isLoadingGroups || !hasSearched}>
                         <SelectTrigger><SelectValue placeholder={isLoadingGroups ? "Laden..." : "Nach Obergruppe filtern..."} /></SelectTrigger>
                         <SelectContent>
                             <SelectItem value="all">Alle Obergruppen</SelectItem>
                             {parentGroups.map(g => <SelectItem key={g.id} value={g.id}>{g.name}</SelectItem>)}
                         </SelectContent>
                     </Select>
-                    <Select value={subGroupFilter} onValueChange={setSubGroupFilter} disabled={parentGroupFilter === 'all' || availableSubGroups.length === 0}>
+                    <Select value={subGroupFilter} onValueChange={setSubGroupFilter} disabled={parentGroupFilter === 'all' || availableSubGroups.length === 0 || !hasSearched}>
                         <SelectTrigger><SelectValue placeholder="Nach Untergruppe filtern..." /></SelectTrigger>
                         <SelectContent>
                             <SelectItem value="all">Alle Untergruppen</SelectItem>
