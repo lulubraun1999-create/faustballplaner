@@ -31,6 +31,9 @@ const formSchema = z.object({
   nachname: z.string().min(2, { message: "Nachname muss mindestens 2 Zeichen lang sein." }),
   email: z.string().email({ message: "Ungültige E-Mail-Adresse." }),
   password: z.string().min(6, { message: "Das Passwort muss mindestens 6 Zeichen lang sein." }),
+  registrationCode: z.string().refine(code => code === 'Ellaisttoll', {
+    message: "Ungültiger Registrierungscode.",
+  }),
 });
 
 export function SignUpForm() {
@@ -47,6 +50,7 @@ export function SignUpForm() {
       nachname: "",
       email: "",
       password: "",
+      registrationCode: "",
     },
   });
 
@@ -161,6 +165,19 @@ export function SignUpForm() {
               <FormMessage />
             </FormItem>
           )}
+        />
+        <FormField
+            control={form.control}
+            name="registrationCode"
+            render={({ field }) => (
+                <FormItem>
+                <FormLabel>Registrierungscode</FormLabel>
+                <FormControl>
+                    <Input type="password" {...field} />
+                </FormControl>
+                <FormMessage />
+                </FormItem>
+            )}
         />
         <Button type="submit" className="w-full" disabled={isPending}>
           {isPending ? <Loader2 className="animate-spin" /> : "Konto erstellen"}
