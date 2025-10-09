@@ -96,29 +96,62 @@
         "position"
       ]
     },
-    "Mannschaftskasse": {
-      "$schema": "http://json-schema.org/draft-07/schema#",
-      "title": "Mannschaftskasse",
-      "type": "object",
+    "CashRegister": {
+      "title": "Cash Register",
       "description": "Represents the team's cash register.",
+      "type": "object",
       "properties": {
-        "id": {
-          "type": "string",
-          "description": "Unique identifier for the cash register."
-        },
-        "teamId": {
-          "type": "string",
-          "description": "Reference to the team. (Relationship: Team 1:1 Mannschaftskasse)"
-        },
         "balance": {
           "type": "number",
-          "description": "The current balance of the team's cash register."
+          "description": "The current balance."
+        },
+        "groupId": {
+          "type": "string",
+          "description": "The ID of the group this cash register belongs to."
         }
       },
       "required": [
-        "id",
-        "teamId",
-        "balance"
+        "balance",
+        "groupId"
+      ]
+    },
+    "Transaction": {
+      "title": "Transaction",
+      "description": "Represents a single transaction in a cash register.",
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": [
+            "income",
+            "expense"
+          ],
+          "description": "The type of transaction."
+        },
+        "description": {
+          "type": "string",
+          "description": "A description of the transaction."
+        },
+        "amount": {
+          "type": "number",
+          "description": "The amount of the transaction."
+        },
+        "date": {
+          "type": "string",
+          "format": "date-time",
+          "description": "The date and time of the transaction."
+        },
+        "memberId": {
+          "type": "string",
+          "description": "The ID of the member related to the transaction."
+        }
+      },
+      "required": [
+        "type",
+        "description",
+        "amount",
+        "date",
+        "memberId"
       ]
     }
   },
@@ -187,26 +220,50 @@
         }
       },
       {
-        "path": "/teams/{teamId}/mannschaftskasse/{mannschaftskasseId}",
+        "path": "/groups/{groupId}/cashRegister/{cashRegisterId}",
         "definition": {
-          "entityName": "Mannschaftskasse",
+          "entityName": "CashRegister",
           "schema": {
-            "$ref": "#/backend/entities/Mannschaftskasse"
+            "$ref": "#/backend/entities/CashRegister"
           },
-          "description": "Subcollection representing the team's cash register. Each document represents the cash register for the corresponding team.",
+          "description": "Represents the cash register for a specific group.",
           "params": [
             {
-              "name": "teamId",
-              "description": "The unique identifier of the team."
+              "name": "groupId",
+              "description": "The unique identifier for the group."
             },
             {
-              "name": "mannschaftskasseId",
-              "description": "The unique identifier of the cash register (should typically be the same as the teamId to ensure a 1:1 relationship)."
+              "name": "cashRegisterId",
+              "description": "The unique identifier for the cash register."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/groups/{groupId}/cashRegister/{cashRegisterId}/transactions/{transactionId}",
+        "definition": {
+          "entityName": "Transaction",
+          "schema": {
+            "$ref": "#/backend/entities/Transaction"
+          },
+          "description": "Represents the transactions for a specific cash register.",
+          "params": [
+            {
+              "name": "groupId",
+              "description": "The unique identifier for the group."
+            },
+            {
+              "name": "cashRegisterId",
+              "description": "The unique identifier for the cash register."
+            },
+            {
+              "name": "transactionId",
+              "description": "The unique identifier for the transaction."
             }
           ]
         }
       }
     ],
-    "reasoning": "The Firestore structure is designed to manage Faustball teams, matches, players, and team cash registers. The structure prioritizes Authorization Independence by avoiding `get()` calls in security rules. This is achieved by using path-based ownership for user-related data, enabling atomic operations and simplifying security rule management.\n\n**Authorization Independence:**\nPath-based ownership (`/teams/{teamId}/...`) establishes clear ownership, making security rules simple and efficient without needing to retrieve parent document data.\n\n**Structural Segregation:**\nThe structure uses dedicated collections for each entity (teams, matches, players, cash registers), ensuring that all documents within a collection share the same security requirements.\n\n**Access Modeling:**\n-   **Team Data:** Uses a top-level `/teams` collection. Each team has a subcollection for players and a subcollection for matches.\n-   **Player Data:** Players are stored within the `/teams/{teamId}/players` collection, clearly associating them with their respective teams.\n-   **Match Data:** Matches are stored within the `/teams/{teamId}/matches` collection, associating them with a team.\n-   **Mannschaftskasse (Cash Register):**  Each team has a dedicated document in the `/teams/{teamId}/mannschaftskasse` collection, ensuring that the cash register data is directly associated with the team. This is a 1:1 relationship.\n\n**QAPs (Rules are not Filters):**\nThe structure supports secure `list` operations by ensuring that security rules can be applied directly to collection reads, without needing to filter data based on document content. Path-based ownership enables secure listing of resources associated with a specific team.\n\n**Invariants:**\nThe structure supports data integrity by enforcing clear ownership and relationships between entities. For example, a `Player` document's `teamId` field always points to an existing `Team` document. Similarly, each `Mannschaftskasse` document is tied to a specific `Team` via the `teamId`."
+    "reasoning": "The Firestore structure is designed to manage Faustball teams, matches, players, and team cash registers. The structure prioritizes Authorization Independence by avoiding `get()` calls in security rules. This is achieved by using path-based ownership for user-related data, enabling atomic operations and simplifying security rule management.\n\n**Authorization Independence:**\nPath-based ownership (`/teams/{teamId}/...`) establishes clear ownership, making security rules simple and efficient without needing to retrieve parent document data.\n\n**Structural Segregation:**\nThe structure uses dedicated collections for each entity (teams, matches, players, cash registers), ensuring that all documents within a collection share the same security requirements.\n\n**Access Modeling:**\n-   **Team Data:** Uses a top-level `/teams` collection. Each team has a subcollection for players and a subcollection for matches.\n-   **Player Data:** Players are stored within the `/teams/{teamId}/players` collection, clearly associating them with their respective teams.\n-   **Match Data:** Matches are stored within the `/teams/{teamId}/matches` collection, associating them with a team.\n-   **Mannschaftskasse (Cash Register):** Each group has a dedicated subcollection for its cash register at `/groups/{groupId}/cashRegister`. Transactions are stored in a subcollection within each cash register document. This ensures data is properly segmented and access can be controlled on a per-group basis.\n\n**QAPs (Rules are not Filters):**\nThe structure supports secure `list` operations by ensuring that security rules can be applied directly to collection reads, without needing to filter data based on document content. Path-based ownership enables secure listing of resources associated with a specific team or group.\n\n**Invariants:**\nThe structure supports data integrity by enforcing clear ownership and relationships between entities. For example, a `Player` document's `teamId` field always points to an existing `Team` document."
   }
 }
