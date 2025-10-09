@@ -242,12 +242,16 @@ export default function TeamCashPage() {
                                         </SelectContent>
                                     </Select>
                                 </div>
-                                {selectedSubGroupId && (
+                                {selectedSubGroupId ? (
                                     <TransactionView 
                                         subGroupId={selectedSubGroupId} 
                                         subGroupName={selectedSubGroupName}
                                         onEdit={handleEditTransaction}
                                     />
+                                ) : (
+                                    <div className="flex items-center justify-center h-48 text-muted-foreground">
+                                        Bitte wählen Sie eine Mannschaft aus, um die Transaktionen anzuzeigen.
+                                    </div>
                                 )}
                             </>
                             ) : (
