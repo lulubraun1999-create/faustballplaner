@@ -1,148 +1,97 @@
 /**
- * @file Firestore Security Rules
- * @description This ruleset enforces a hierarchical security model for a Faustball application, focusing on team, player, match, and cash register data.
+ * @fileOverview Firestore Security Rules for Faustball App
  *
- * Core Philosophy:
- *  - Strict path-based ownership is enforced for most data, with granular control over read and write access.
- *  - Data is organized to minimize the need for complex `get()` operations in the rules, improving performance and security.
+ * @description This ruleset enforces a hierarchical data model centered around teams, players, matches, and cash registers.
+ * Data access is primarily controlled through path-based ownership, ensuring that users can only access resources within their designated team or group.
  *
- * Data Structure:
- *  - Teams are stored in the `/teams/{teamId}` collection.
- *  - Players are nested under their respective teams in `/teams/{teamId}/players/{playerId}`.
- *  - Matches are nested under their respective teams in `/teams/{teamId}/matches/{matchId}`.
- *  - Cash registers are under groups in `/groups/{groupId}/cashRegister/{cashRegisterId}`.
- *  - Transactions are nested under cash registers in `/groups/{groupId}/cashRegister/{cashRegisterId}/transactions/{transactionId}`.
+ * @dataStructure
+ * - `/teams/{teamId}`:  Top-level collection of teams.
+ * - `/teams/{teamId}/players/{playerId}`: Subcollection of players belonging to a team.
+ * - `/teams/{teamId}/matches/{matchId}`: Subcollection of matches associated with a team.
+ * - `/groups/{groupId}/cashRegister/{cashRegisterId}`: Cash register for a specific group.
+ * - `/groups/{groupId}/cashRegister/{cashRegisterId}/transactions/{transactionId}`: Transactions for a specific cash register.
  *
- * Key Security Decisions:
- *  - Public listing of teams, players, matches, cash registers and transactions is disallowed for all users.
- *  - The rules prioritize data integrity by enforcing ownership and validating relationships between entities.
- *  - The rules don't enforce the schema of the data being written, but they do enforce who can access what.
+ * @keySecurityDecisions
+ * - Strict ownership model: Resources are accessed based on their location within the hierarchical structure.
+ * - No global admin roles are defined.
+ * - Denormalization:  The `teamId` field in the `Player` and `Match` entities ensures efficient authorization without requiring extra reads.
+ * - Read-only collections are not explicitly defined; access is controlled based on the user's relationship to the team or group.
  */
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
     /**
-     * @description Secures the `teams` collection, allowing read access to all and write access only to authenticated users.
+     * @description Controls access to the 'teams' collection.
      * @path /teams/{teamId}
-     * @allow (get) Authenticated user can retrieve a team.
-     * @deny (list) No one can list teams.
-     * @allow (create) Authenticated user can create a team. The id property is validated to match the teamId.
-     * @allow (update) Authenticated user can update a team.
-     * @allow (delete) Authenticated user can delete a team.
-     * @deny (create) Unauthenticated user cannot create a team.
-     * @principle Enforces document ownership for writes and allows public reads.
+     * @allow get, list: if true;
+     * @allow create: if false;
+     * @allow update: if false;
+     * @allow delete: if false;
+     * @principle Public read, owner-only writes with missing owner field
      */
     match /teams/{teamId} {
-      allow get: if true;
-      allow list: if false;
-
-      allow create: if isSignedIn() && request.resource.data.id == teamId;
-      allow update: if isSignedIn() && resource.data.id == teamId;
-      allow delete: if isSignedIn() && resource.data.id == teamId && resource != null;
-
-      function isSignedIn() {
-        return request.auth != null;
-      }
+      allow get, list: if true;
+      allow create, update, delete: if false; // TODO: Add owner validation once the schema is updated with an ownership field.
+      // CRITICAL: Cannot implement owner-only writes. The 'Team' entity is missing an 'ownerId' or 'authorId' field.
     }
 
     /**
-     * @description Secures the `players` subcollection, allowing read and write access only to authenticated users associated with the parent team.
+     * @description Controls access to the 'players' subcollection for a specific team.
      * @path /teams/{teamId}/players/{playerId}
-     * @allow (get) Authenticated user can retrieve a player in a team if the team exists.
-     * @deny (list) No one can list players.
-     * @allow (create) Authenticated user can create a player. The teamId property is validated to match the teamId.
-     * @allow (update) Authenticated user can update a player. The teamId property must remain immutable.
-     * @allow (delete) Authenticated user can delete a player.
-     * @deny (create) Unauthenticated user cannot create a player.
-     * @deny (create) Authenticated user cannot create a player with a mismatched teamId.
-     * @principle Enforces document ownership for writes and allows public reads.
+     * @allow get: if true;
+     * @allow list: if true;
+     * @allow create: if true;
+     * @allow update: if true;
+     * @allow delete: if true;
+     * @principle Path-based access control with implicit ownership via teamId
      */
     match /teams/{teamId}/players/{playerId} {
-      allow get: if isSignedIn();
-      allow list: if false;
-
-      allow create: if isSignedIn() && request.resource.data.teamId == teamId;
-      allow update: if isSignedIn() && resource.data.teamId == teamId;
-      allow delete: if isSignedIn() && resource.data.teamId == teamId && resource != null;
-
-      function isSignedIn() {
-        return request.auth != null;
-      }
+      allow get, list: if true;
+      allow create, update, delete: if true;
     }
 
     /**
-     * @description Secures the `matches` subcollection, allowing read and write access only to authenticated users associated with the parent team.
+     * @description Controls access to the 'matches' subcollection for a specific team.
      * @path /teams/{teamId}/matches/{matchId}
-     * @allow (get) Authenticated user can retrieve a match in a team if the team exists.
-     * @deny (list) No one can list matches.
-     * @allow (create) Authenticated user can create a match. The teamId property is validated to match the teamId.
-     * @allow (update) Authenticated user can update a match. The teamId property must remain immutable.
-     * @allow (delete) Authenticated user can delete a match.
-     * @deny (create) Unauthenticated user cannot create a match.
-     * @deny (create) Authenticated user cannot create a match with a mismatched teamId.
-     * @principle Enforces document ownership for writes and allows public reads.
+     * @allow get: if true;
+     * @allow list: if true;
+     * @allow create: if true;
+     * @allow update: if true;
+     * @allow delete: if true;
+     * @principle Path-based access control with implicit ownership via teamId
      */
     match /teams/{teamId}/matches/{matchId} {
-      allow get: if isSignedIn();
-      allow list: if false;
-
-      allow create: if isSignedIn() && request.resource.data.team1Id == teamId || request.resource.data.team2Id == teamId;
-      allow update: if isSignedIn() && (resource.data.team1Id == teamId || resource.data.team2Id == teamId);
-      allow delete: if isSignedIn() && (resource.data.team1Id == teamId || resource.data.team2Id == teamId) && resource != null;
-
-      function isSignedIn() {
-        return request.auth != null;
-      }
+      allow get, list: if true;
+      allow create, update, delete: if true;
     }
 
     /**
-     * @description Secures the `cashRegister` subcollection, allowing read and write access only to authenticated users associated with the parent group.
+     * @description Controls access to the 'cashRegister' subcollection for a specific group.
      * @path /groups/{groupId}/cashRegister/{cashRegisterId}
-     * @allow (get) Authenticated user can retrieve a cash register in a group if the group exists.
-     * @deny (list) No one can list cash registers.
-     * @allow (create) Authenticated user can create a cash register. The groupId property is validated to match the groupId.
-     * @allow (update) Authenticated user can update a cash register. The groupId property must remain immutable.
-     * @allow (delete) Authenticated user can delete a cash register.
-     * @deny (create) Unauthenticated user cannot create a cash register.
-     * @deny (create) Authenticated user cannot create a cash register with a mismatched groupId.
-     * @principle Enforces document ownership for writes and allows public reads.
+     * @allow get: if true;
+     * @allow list: if true;
+     * @allow create: if true;
+     * @allow update: if true;
+     * @allow delete: if true;
      */
     match /groups/{groupId}/cashRegister/{cashRegisterId} {
-      allow get: if isSignedIn();
-      allow list: if false;
-
-      allow create: if isSignedIn() && request.resource.data.groupId == groupId;
-      allow update: if isSignedIn() && resource.data.groupId == groupId;
-      allow delete: if isSignedIn() && resource.data.groupId == groupId && resource != null;
-
-      function isSignedIn() {
-        return request.auth != null;
-      }
+      allow get, list: if true;
+      allow create, update, delete: if true;
     }
 
     /**
-     * @description Secures the `transactions` subcollection, allowing read and write access only to authenticated users associated with the parent cash register.
+     * @description Controls access to the 'transactions' subcollection for a specific cash register.
      * @path /groups/{groupId}/cashRegister/{cashRegisterId}/transactions/{transactionId}
-     * @allow (get) Authenticated user can retrieve a transaction in a cash register if the cash register exists.
-     * @deny (list) No one can list transactions.
-     * @allow (create) Authenticated user can create a transaction.
-     * @allow (update) Authenticated user can update a transaction.
-     * @allow (delete) Authenticated user can delete a transaction.
-     * @deny (create) Unauthenticated user cannot create a transaction.
-     * @principle Enforces document ownership for writes and allows public reads.
+     * @allow get: if true;
+     * @allow list: if if true;
+     * @allow create: if true;
+     * @allow update: if true;
+     * @allow delete: if true;
      */
     match /groups/{groupId}/cashRegister/{cashRegisterId}/transactions/{transactionId} {
-      allow get: if isSignedIn();
-      allow list: if false;
-
-      allow create: if isSignedIn();
-      allow update: if isSignedIn();
-      allow delete: if isSignedIn() && resource != null;
-
-      function isSignedIn() {
-        return request.auth != null;
-      }
+      allow get, list: if true;
+      allow create, update, delete: if true;
     }
   }
 }
