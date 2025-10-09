@@ -10,7 +10,7 @@ interface FirebaseClientProviderProps {
 }
 
 export function FirebaseClientProvider({ children }: FirebaseClientProviderProps) {
-  // The Firebase services are now initialized and imported directly from the barrel file.
+  // The Firebase services are now initialized and imported directly.
   // This ensures they are singletons on the client side.
   return (
     <FirebaseProvider

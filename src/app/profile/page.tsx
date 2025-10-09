@@ -69,7 +69,7 @@ export default function ProfilePage() {
   const selectedPositions = watch('position') || [];
 
   useEffect(() => {
-    if (user) {
+    if (user && firestore) {
       const fetchUserData = async () => {
         setIsLoading(true);
         const docRef = doc(firestore, "users", user.uid);
@@ -306,4 +306,3 @@ export default function ProfilePage() {
     </div>
   );
 }
-
