@@ -29,6 +29,9 @@ export default function GroupsPage() {
   const [isManaging, setIsManaging] = useState(false);
   const [selectedSubGroup, setSelectedSubGroup] = useState<Group | null>(null);
 
+  // State to control when to fetch members
+  const [shouldFetchMembers, setShouldFetchMembers] = useState(false);
+
   // Memoize the query to prevent re-renders
   const groupsQuery = useMemoFirebase(() => {
     if (!firestore) return null;
@@ -38,11 +41,11 @@ export default function GroupsPage() {
   // Fetch all groups
   const { data: allGroups, isLoading: isLoadingGroups } = useCollection<Group>(groupsQuery);
 
-  // Fetch members only for the *selected* subgroup
+  // Fetch members only for the *selected* subgroup and if fetching is enabled
   const membersQuery = useMemoFirebase(() => {
-    if (!firestore || !selectedSubGroup) return null;
+    if (!firestore || !selectedSubGroup || !shouldFetchMembers) return null;
     return query(collection(firestore, 'members'), where('groupIds', 'array-contains', selectedSubGroup.id));
-  }, [firestore, selectedSubGroup]);
+  }, [firestore, selectedSubGroup, shouldFetchMembers]);
   const { data: membersInSelectedGroup, isLoading: isLoadingMembers } = useCollection<MemberProfile>(membersQuery);
 
 
@@ -80,6 +83,7 @@ export default function GroupsPage() {
   // When parent group changes, reset the selected subgroup
   useEffect(() => {
     setSelectedSubGroup(null);
+    setShouldFetchMembers(false); // Reset member fetching
   }, [selectedParentGroup]);
 
 
@@ -96,20 +100,28 @@ export default function GroupsPage() {
     return [...membersInSelectedGroup].sort((a, b) => (a.nachname || '').localeCompare(b.nachname || ''));
   }, [membersInSelectedGroup]);
 
-  const isLoading = isLoadingGroups || (selectedSubGroup && isLoadingMembers);
+  const isLoading = isLoadingGroups; // We only show initial loading for groups
 
   const handleSubGroupClick = (group: Group) => {
-    // Toggle selection: if same group is clicked again, hide the list
     if (selectedSubGroup?.id === group.id) {
-      setSelectedSubGroup(null);
+        // If clicking the same group, just toggle fetching off
+        setSelectedSubGroup(null);
+        setShouldFetchMembers(false);
     } else {
-      setSelectedSubGroup(group);
+        setSelectedSubGroup(group);
+        // Important: Don't fetch yet. Wait for button click.
+        setShouldFetchMembers(false); 
     }
   };
+
+  const handleShowMembersClick = () => {
+    setShouldFetchMembers(true);
+  }
   
   const handleParentGroupSelect = (group: Group) => {
     setSelectedParentGroup(group);
     setSelectedSubGroup(null); // Reset subgroup when parent changes
+    setShouldFetchMembers(false);
   }
 
   if (isManaging) {
@@ -197,11 +209,17 @@ export default function GroupsPage() {
                         <CardTitle>Mitglieder in {selectedSubGroup.name}</CardTitle>
                     </CardHeader>
                     <CardContent>
-                        {isLoadingMembers ? (
+                        {!shouldFetchMembers && (
+                             <div className="flex flex-col items-center justify-center h-24 gap-4">
+                                <p>Klicken Sie, um die Mitgliederliste zu laden.</p>
+                                <Button onClick={handleShowMembersClick}>Mitglieder anzeigen</Button>
+                            </div>
+                        )}
+                        {shouldFetchMembers && isLoadingMembers ? (
                             <div className="flex items-center justify-center h-24">
                                 <Loader2 className="h-6 w-6 animate-spin text-primary" />
                             </div>
-                        ) : (
+                        ) : shouldFetchMembers && (
                          <Table>
                             <TableHeader>
                                 <TableRow>
