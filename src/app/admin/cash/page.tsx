@@ -1,9 +1,10 @@
+
 "use client";
 
 import { useState, useMemo, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
+import { useFirestore, useCollection, useMemoFirebase, useUser } from '@/firebase';
 import { collection, query, where, doc, getDoc, setDoc, addDoc, serverTimestamp } from 'firebase/firestore';
 import { Header } from '@/components/shared/header';
 import { Loader2, Plus, Minus, Euro } from 'lucide-react';
@@ -194,11 +195,12 @@ const AddTransactionForm = ({ group, members, cashRegister, onTransactionAdded }
 
 export default function CashPage() {
     const firestore = useFirestore();
+    const { user, isUserLoading } = useUser();
 
     const groupsQuery = useMemoFirebase(() => {
-        if (!firestore) return null;
+        if (!firestore || !user) return null;
         return query(collection(firestore, 'groups'), where('parentGroupId', '!=', null));
-    }, [firestore]);
+    }, [firestore, user]);
     const { data: subGroups, isLoading: isLoadingGroups } = useCollection<Group>(groupsQuery);
 
     const [selectedGroup, setSelectedGroup] = useState<Group | null>(null);
@@ -258,6 +260,7 @@ export default function CashPage() {
         return [...transactions].sort((a, b) => b.date.toMillis() - a.date.toMillis());
     }, [transactions]);
 
+    const isLoading = isUserLoading || isLoadingGroups;
 
     return (
         <div className="flex min-h-screen flex-col">
@@ -269,7 +272,7 @@ export default function CashPage() {
                         <p className="text-muted-foreground">Wähle eine Untergruppe, um die Kasse zu verwalten.</p>
                     </section>
 
-                    {isLoadingGroups ? (
+                    {isLoading ? (
                         <Loader2 className="mx-auto h-8 w-8 animate-spin text-primary" />
                     ) : (
                         <div className="space-y-8">
