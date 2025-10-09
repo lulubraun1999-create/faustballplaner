@@ -15,10 +15,9 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useUser, setDocumentNonBlocking } from '@/firebase';
-import { initializeApp } from 'firebase/app';
+import { initializeApp, getApps } from 'firebase/app';
 import { getAuth, createUserWithEmailAndPassword, updateProfile } from 'firebase/auth';
 import { getFirestore, doc } from 'firebase/firestore';
-import { firebaseConfig } from '@/firebase/config';
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
 import { useState, useEffect } from 'react';
@@ -32,7 +31,7 @@ const formSchema = z
     email: z.string().email('Ungültige E-Mail-Adresse.'),
     password: z.string().min(6, 'Passwort muss mindestens 6 Zeichen haben.'),
     confirmPassword: z.string(),
-    registrationCode: z.string().min(1, 'Registrierungscode ist erforderlich.'),
+    registrationCode: z.string().optional(),
   })
   .refine((data) => data.password === data.confirmPassword, {
     message: 'Passwörter stimmen nicht überein.',
@@ -72,7 +71,8 @@ export function SignupForm() {
 
     try {
       // Initialize Firebase services directly here to ensure they are available and correct.
-      const app = initializeApp(firebaseConfig);
+      // We call initializeApp() without config to try and use automatic server-side configuration.
+      const app = getApps().length === 0 ? initializeApp() : getApps()[0];
       const auth = getAuth(app);
       const firestore = getFirestore(app);
 
