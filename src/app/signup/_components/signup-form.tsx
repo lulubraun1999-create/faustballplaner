@@ -15,9 +15,11 @@ import {
 } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { useUser, initializeFirebase, setDocumentNonBlocking } from '@/firebase';
-import { createUserWithEmailAndPassword, updateProfile } from 'firebase/auth';
-import { doc } from 'firebase/firestore';
+import { useUser, setDocumentNonBlocking } from '@/firebase';
+import { initializeApp } from 'firebase/app';
+import { getAuth, createUserWithEmailAndPassword, updateProfile } from 'firebase/auth';
+import { getFirestore, doc } from 'firebase/firestore';
+import { firebaseConfig } from '@/firebase/config';
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
 import { useState, useEffect } from 'react';
@@ -69,7 +71,7 @@ export function SignupForm() {
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
     startTransition(true);
     
-    if (values.registrationCode !== 'Ellaisttoll') {
+    if (values.registrationCode !== 'Ellaistoll') {
         toast({
             variant: 'destructive',
             title: 'Registrierung fehlgeschlagen',
@@ -79,20 +81,11 @@ export function SignupForm() {
         return;
     }
 
-    // Direct initialization to bypass provider issues
-    const { auth, firestore } = initializeFirebase();
-
-    if (!auth || !firestore) {
-        toast({
-            variant: 'destructive',
-            title: 'Registrierung fehlgeschlagen',
-            description: 'Firebase konnte nicht initialisiert werden. Bitte versuchen Sie es später erneut.',
-        });
-        startTransition(false);
-        return;
-    }
-
     try {
+      const app = initializeApp(firebaseConfig);
+      const auth = getAuth(app);
+      const firestore = getFirestore(app);
+
       const userCredential = await createUserWithEmailAndPassword(
         auth,
         values.email,
@@ -140,7 +133,7 @@ export function SignupForm() {
             break;
           case 'auth/invalid-api-key':
           case 'auth/api-key-not-valid':
-             description = 'Der API-Schlüssel ist ungültig. Bitte kontaktieren Sie den Support.';
+             description = `Der API-Schlüssel ist ungültig. (${error.code})`;
              break;
           default:
             console.error('Registration Error:', error);
