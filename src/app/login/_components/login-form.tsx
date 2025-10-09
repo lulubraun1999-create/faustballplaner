@@ -23,6 +23,7 @@ import { useRouter } from "next/navigation";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2 } from "lucide-react";
 import React, { useEffect, useState } from "react";
+import { initiateEmailSignIn } from "@/firebase/non-blocking-login";
 
 const formSchema = z.object({
   email: z.string().email({ message: "Ungültige E-Mail-Adresse." }),
@@ -47,8 +48,10 @@ export function LoginForm() {
   });
 
   useEffect(() => {
-    if (!isUserLoading && user && user.emailVerified) {
-      router.push("/");
+    if (!isUserLoading && user) {
+        if (user.emailVerified) {
+            router.push("/");
+        }
     }
   }, [user, isUserLoading, router]);
 
@@ -78,42 +81,20 @@ export function LoginForm() {
   };
 
   const onSubmit = (values: z.infer<typeof formSchema>) => {
-    startTransition(async () => {
-      if (!auth) return;
-      setShowResend(false);
-      try {
-        const userCredential = await signInWithEmailAndPassword(auth, values.email, values.password);
-        
-        if (!userCredential.user.emailVerified) {
-          toast({
-            variant: "destructive",
-            title: "Anmeldung fehlgeschlagen",
-            description: "Bitte bestätigen Sie zuerst Ihre E-Mail-Adresse.",
-          });
-          setEmailForResend(values.email);
-          setShowResend(true);
-          // Don't sign out immediately, so we can resend verification
-          // await auth.signOut();
-          return;
-        }
+    if (!auth) return;
+    initiateEmailSignIn(auth, values.email, values.password);
 
-        toast({
-          title: "Erfolgreich angemeldet",
-          description: "Sie werden weitergeleitet.",
-        });
-        router.push("/");
-      } catch (error: any) {
-        let description = "Ein unerwarteter Fehler ist aufgetreten.";
-        if (error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password' || error.code === 'auth/invalid-credential') {
-            description = "Falsche E-Mail-Adresse oder falsches Passwort.";
-        }
-        toast({
-          variant: "destructive",
-          title: "Anmeldung fehlgeschlagen",
-          description,
-        });
-      }
+    // This part is tricky because we don't have the userCredential anymore.
+    // We rely on the onAuthStateChanged listener to redirect.
+    // We can show a toast indicating that login is in progress.
+    toast({
+        title: "Anmeldung...",
+        description: "Sie werden angemeldet.",
     });
+
+    // We can't reliably detect the "email not verified" case here without `await`.
+    // The logic inside `useEffect` and `onAuthStateChanged` becomes more important.
+    // A possible improvement would be a global listener that checks verification status.
   };
 
   if (isUserLoading || (user && user.emailVerified)) {
@@ -123,6 +104,21 @@ export function LoginForm() {
       </div>
     );
   }
+  
+   // This effect will run when `user` changes via `onAuthStateChanged`
+  useEffect(() => {
+    if (user && !user.emailVerified && !isUserLoading) {
+        toast({
+            variant: "destructive",
+            title: "Anmeldung fehlgeschlagen",
+            description: "Bitte bestätigen Sie zuerst Ihre E-Mail-Adresse.",
+        });
+        setEmailForResend(user.email || '');
+        setShowResend(true);
+        // We don't sign out, to allow resending the verification email.
+    }
+  }, [user, isUserLoading, toast]);
+
 
   return (
     <Form {...form}>
