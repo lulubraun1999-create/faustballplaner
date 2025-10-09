@@ -14,7 +14,7 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import { useAuth, useFirestore, initializeFirebase } from "@/firebase";
+import { initializeFirebase } from "@/firebase";
 import {
   createUserWithEmailAndPassword,
   sendEmailVerification,

@@ -1,28 +1,36 @@
 'use client';
 
 import { firebaseConfig } from '@/firebase/config';
-import { initializeApp, getApps, getApp, FirebaseApp } from 'firebase/app';
+import { initializeApp, getApp, type FirebaseApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
-import { getFirestore } from 'firebase/firestore'
+import { getFirestore } from 'firebase/firestore';
+
+let app: FirebaseApp;
+try {
+  app = getApp();
+} catch (e) {
+  app = initializeApp(firebaseConfig);
+}
+
+const firestore = getFirestore(app);
+const auth = getAuth(app);
 
 // IMPORTANT: DO NOT MODIFY THIS FUNCTION
 export function initializeFirebase() {
-  if (getApps().length) {
-    // If already initialized, return the SDKs with the already initialized App
-    return getSdks(getApp());
-  }
-
-  // Always initialize with the explicit config to ensure the correct API key is used.
-  const firebaseApp = initializeApp(firebaseConfig);
-  
-  return getSdks(firebaseApp);
+  // This function now simply returns the already initialized services.
+  // The logic is handled at the module level to ensure it runs only once.
+  return {
+    firebaseApp: app,
+    auth: auth,
+    firestore: firestore,
+  };
 }
 
 export function getSdks(firebaseApp: FirebaseApp) {
   return {
     firebaseApp,
     auth: getAuth(firebaseApp),
-    firestore: getFirestore(firebaseApp)
+    firestore: getFirestore(firebaseApp),
   };
 }
 
