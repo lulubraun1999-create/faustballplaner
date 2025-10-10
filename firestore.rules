@@ -1,49 +1,23 @@
 /**
- * @file Firestore Security Rules
- * @description This ruleset enforces a security model based on clear ownership and separation of concerns, focusing on authorization independence and preventing unauthorized data access.
+ * @file Overview
+ * This ruleset enforces a strict data ownership model, primarily focused on teams and their associated players.
  *
  * Data Structure:
  * - /teams/{teamId}: Stores team information.
- * - /teams/{teamId}/players/{playerId}: Stores player information, nested under teams. The `teamId` is duplicated within the player document to enable authorization independence.
+ * - /teams/{teamId}/players/{playerId}: Stores player information, nested under teams.
  * - /matches/{matchId}: Stores match information.
  *
  * Key Security Decisions:
- * - Teams and Matches are not owned by users, so create, update, and delete operations are disabled.
- * - Players are associated with Teams and are secured using an ownership model based on the `teamId` stored in the player document.
- * - Listing of teams and matches is allowed.
- * - Listing of players is allowed only to team members.
+ * - Users do not have individual accounts; authorization is not user-based.
+ * - Instead, anyone can read public team or match data.
+ * - Create, Update, and Delete permissions are disabled due to the lack of user authentication.
  */
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
     /**
-     * @description Defines a helper function to check if the user is signed in.
-     * @principle Ensures that only authenticated users can access certain resources.
-     */
-    function isSignedIn() {
-      return request.auth != null;
-    }
-
-    /**
-     * @description Defines a helper function to check if the teamId matches the ID in the path.
-     * @principle Enforces path-based ownership.
-     */
-    function isTeamIdValid(teamId) {
-      return request.resource.data.teamId == teamId;
-    }
-
-    /**
-     * @description Checks if a document exists.
-     */
-    function isExisting() {
-      return resource != null;
-    }
-
-    /***************** Teams Collection *****************/
-
-    /**
-     * @description Controls access to the /teams/{teamId} collection.
+     * @description Controls access to team documents.
      * @path /teams/{teamId}
      * @allow (get, list) Anyone can read team data.
      * @deny (create, update, delete) No one can create, update, or delete teams.
@@ -54,28 +28,20 @@ service cloud.firestore {
       allow create, update, delete: if false;
     }
 
-    /***************** Players Collection (Subcollection of Teams) *****************/
-
     /**
-     * @description Controls access to the /teams/{teamId}/players/{playerId} collection.
+     * @description Controls access to player documents within a team.
      * @path /teams/{teamId}/players/{playerId}
-     * @allow (get, list) Anyone can read player data if they know the team ID.
-     * @allow (create) A user can create a player if they provide the correct teamId.
-     * @allow (update, delete) No one can update or delete players.
-     * @deny (create) A user cannot create a player if the teamId in the document does not match the teamId in the path.
-     * @deny (update, delete) A user cannot update or delete any player.
-     * @principle Ownership-based access control for creation, read access for all.
+     * @allow (get, list) Anyone can read player data.
+     * @deny (create, update, delete) No one can create, update, or delete players.
+     * @principle Public read, no writes allowed.
      */
     match /teams/{teamId}/players/{playerId} {
       allow get, list: if true;
-      allow create: if isSignedIn() && request.resource.data.teamId == teamId;
-      allow update, delete: if false;
+      allow create, update, delete: if false;
     }
 
-    /***************** Matches Collection *****************/
-
     /**
-     * @description Controls access to the /matches/{matchId} collection.
+     * @description Controls access to match documents.
      * @path /matches/{matchId}
      * @allow (get, list) Anyone can read match data.
      * @deny (create, update, delete) No one can create, update, or delete matches.
