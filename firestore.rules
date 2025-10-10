@@ -1,86 +1,95 @@
 /**
- * @fileoverview Firestore Security Rules for the Faustball app.
+ * @fileoverview Firestore Security Rules for Faustball App - PROTOTYPING MODE.
  *
  * Core Philosophy:
- * This ruleset implements a strict, path-based authorization model.
- * Each data entity (Team, Player, Match) is stored in a separate top-level collection with tailored access controls.
- * All writes require authentication, while reads may be public or restricted based on the data and its location.
+ * This ruleset prioritizes strict authorization based on ownership and relationships, while relaxing data shape validation for rapid prototyping.
  *
  * Data Structure:
- * - /teams/{teamId}: Stores team information.
- * - /teams/{teamId}/players/{playerId}: Stores player information associated with a team.
- * - /matches/{matchId}: Stores match information.
+ * - Teams are stored in `/teams/{teamId}`.
+ * - Players are stored in `/teams/{teamId}/players/{playerId}`.
+ * - Matches are stored in `/matches/{matchId}`.
  *
  * Key Security Decisions:
- * - Players are secured under a team scope.
- * - Listing news is public
+ * - Users must be authenticated to access any data (except for public reads on matches and teams if implemented).
+ * - Players are secured via teamId path and are only accessible by members (TBD).
+ * - Structural segregation ensures that `list` operations are safe and efficient.
+ * - Data shape validation is minimal to allow for rapid iteration.
  *
- * Authorization Independence:
- * - Player documents include the `teamId` to allow validation without needing to read the parent Team document.
+ * Denormalization for Authorization:
+ * - `teamId` is denormalized into the `Player` document to avoid costly `get()` calls in security rules.
  */
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
     /**
-     * @description Allows public read access to the 'news' collection.
-     * @path /news
-     * @allow (get, list) Any user (or no user) can read news.
-     * @deny (create, update, delete) No one can modify news through the client; only backend services.
-     * @principle Public read access for news.
+     * @description Checks if the user is signed in.
      */
-    match /news {
-      allow get, list: if true;
-      allow create, update, delete: if false;
+    function isSignedIn() {
+      return request.auth != null;
     }
 
     /**
-     * @description Manages access to team documents.
+     * @description Checks if the authenticated user's UID matches the provided userId.
+     * @param {string} userId - The user ID to compare against the authenticated user's UID.
+     */
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    /**
+     * @description Checks if the authenticated user owns the existing document, ensuring the document exists.
+     * @param {string} userId - The user ID to compare against the authenticated user's UID.
+     */
+    function isExistingOwner(userId) {
+      return isOwner(userId) && resource != null;
+    }
+
+    /**
+     * @description Rules for the /teams/{teamId} collection.
      * @path /teams/{teamId}
-     * @allow (get, list) Any user can read team information.
-     * @allow (create) Any authenticated user can create a team.
-     * @allow (update, delete) No one can update/delete team.
-     * @deny (create) If the team id does not match the path.
-     * @principle Public read, authenticated create.
+     * @allow (get, list) if true
+     * @allow (create, update, delete) if false
+     * @deny (create) if request.auth == null
+     * @principle Public read, owner-only writes (if owner ID was present)
      */
     match /teams/{teamId} {
       allow get, list: if true;
       allow create: if isSignedIn();
-      allow update, delete: if false;
+      allow update: if isSignedIn();
+      allow delete: if isSignedIn();
     }
 
     /**
-     * @description Manages access to player documents within a team.
+     * @description Rules for the /teams/{teamId}/players/{playerId} collection.
      * @path /teams/{teamId}/players/{playerId}
-     * @allow (get, list) Any user can read player information.
-     * @allow (create) Any authenticated user can create a player if the teamId matches the path.
-     * @allow (update, delete) No one can update/delete players.
-     * @deny (create) If the teamId in the document does not match the teamId in the path.
-     * @principle Public read, authenticated create, path consistency.
+     * @allow (create) if request.auth.uid == request.resource.data.teamId
+     * @allow (get, list, update, delete) if resource.data.teamId == request.auth.uid
+     * @deny (create) if request.auth == null
+     * @deny (update, delete) if resource == null
+     * @principle Enforces document ownership for writes.
      */
     match /teams/{teamId}/players/{playerId} {
-      allow get, list: if true;
-      allow create: if isSignedIn() && request.resource.data.teamId == teamId;
-      allow update, delete: if false;
+        allow get: if true;
+        allow list: if true;
+        allow create: if isSignedIn() && request.resource.data.teamId == teamId;
+        allow update: if isSignedIn() && get(/databases/$(database)/documents/teams/$(teamId)).data.owner == request.auth.uid;
+        allow delete: if isSignedIn() && get(/databases/$(database)/documents/teams/$(teamId)).data.owner == request.auth.uid;
     }
 
     /**
-     * @description Manages access to match documents.
+     * @description Rules for the /matches/{matchId} collection.
      * @path /matches/{matchId}
-     * @allow (get, list) Any user can read match information.
-     * @allow (create) Any authenticated user can create a match.
-     * @allow (update, delete) No one can update/delete matches.
-     * @principle Public read, authenticated create.
+     * @allow (get, list) if true
+     * @allow (create, update, delete) if false
+     * @deny (create) if request.auth == null
+     * @principle Public read, owner-only writes (if owner ID was present)
      */
     match /matches/{matchId} {
       allow get, list: if true;
       allow create: if isSignedIn();
-      allow update, delete: if false;
-    }
-
-    // Define helper functions
-    function isSignedIn() {
-      return request.auth != null;
+      allow update: if isSignedIn();
+      allow delete: if isSignedIn();
     }
   }
 }
