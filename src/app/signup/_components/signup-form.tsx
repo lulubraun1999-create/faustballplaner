@@ -15,16 +15,14 @@ import {
 } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { useUser } from '@/firebase';
-import { initializeApp, getApps, getApp } from 'firebase/app';
+import { useUser, initializeFirebase, setDocumentNonBlocking } from '@/firebase';
 import { getAuth, createUserWithEmailAndPassword, updateProfile } from 'firebase/auth';
-import { getFirestore, doc, setDoc } from 'firebase/firestore';
+import { getFirestore, doc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
 import { useState, useEffect } from 'react';
 import { Loader2 } from 'lucide-react';
 import Link from 'next/link';
-import { firebaseConfig } from '@/firebase/config';
 
 const formSchema = z
   .object({
@@ -70,9 +68,7 @@ export function SignupForm() {
     startTransition(true);
 
     try {
-      const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
-      const auth = getAuth(app);
-      const firestore = getFirestore(app);
+      const { auth, firestore } = initializeFirebase();
 
       const userCredential = await createUserWithEmailAndPassword(
         auth,
@@ -97,9 +93,9 @@ export function SignupForm() {
       const userDocRef = doc(firestore, 'users', newUser.uid);
       const memberDocRef = doc(firestore, 'members', newUser.uid);
 
-      // Using setDoc which is part of the standard Firebase SDK, not a custom hook
-      await setDoc(userDocRef, userDocData, { merge: true });
-      await setDoc(memberDocRef, userDocData, { merge: true });
+      // Use the correct non-blocking function
+      setDocumentNonBlocking(userDocRef, userDocData, { merge: true });
+      setDocumentNonBlocking(memberDocRef, userDocData, { merge: true });
 
 
       toast({
@@ -257,5 +253,3 @@ export function SignupForm() {
     </Card>
   );
 }
-
-    
