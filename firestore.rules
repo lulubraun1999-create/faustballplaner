@@ -1,129 +1,54 @@
-/**
- * @file Firestore Security Rules for Faustball App
- * @version Prototyping Mode - Data shape is not strictly validated.
- *
- * @description This ruleset enforces a security model based on ownership and relationships between Teams, Players, and Matches.
- *
- * @dataStructure
- * - /teams/{teamId}: Stores team information.
- * - /teams/{teamId}/players/{playerId}: Stores player information, nested under teams.
- * - /matches/{matchId}: Stores match information.
- *
- * @keySecurityDecisions
- * - Teams and Matches are publicly listable, but writes are restricted.
- * - Players are scoped to a Team and can only be managed by authorized users of that team.
- * - Data denormalization is used to avoid costly `get()` calls in rules (e.g., `teamId` is duplicated in `Player` documents).
- */
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
     /**
-     * @description Controls access to the 'teams' collection, allowing public reads and owner-only writes.
+     * @description Rules for the 'teams' collection.
      * @path /teams/{teamId}
      * @allow (get, list): Any user can read team information.
-     * @allow (create): Only authenticated users can create a team, ensuring the 'id' field matches the 'teamId' path parameter.
-     * @allow (update, delete): Only the user who created the team can modify or delete it.
-     * @deny  (create): An unauthenticated user attempts to create a team.
-     * @deny  (update, delete): A user attempts to modify or delete a team they do not own.
-     * @principle Public read, owner-only write access control, enforcing document ownership for writes.
+     * @allow (create, update, delete): Only signed in users can create.
+     * @principle Public read-only collection for teams.
      */
     match /teams/{teamId} {
       allow get, list: if true;
-      allow create: if isSignedIn() && request.resource.data.id == teamId;
-      allow update, delete: if isSignedIn() && resource.data.ownerId == request.auth.uid && resource.data.id == teamId;
+      allow create: if isSignedIn();
+      allow update, delete: if false;
     }
 
     /**
-     * @description Controls access to the 'players' subcollection, restricting access to team members.
+     * @description Rules for the 'players' subcollection within a team.
      * @path /teams/{teamId}/players/{playerId}
-     * @allow (get, list): Only team members can list the players for a team.
-     * @allow (create): Only team members can create players, and the 'teamId' must match the parent team.
-     * @allow (update, delete): Only team members can modify or delete players.
-     * @deny  (create): A user attempts to create a player for a team they are not a member of.
-     * @deny  (update, delete): A user attempts to modify or delete a player they are not authorized to manage.
-     * @principle Restricts access to a user's own data tree, validates relational integrity between documents.
+     * @allow (get, list): Any user can read players of a team.
+     * @allow create: if isSignedIn();
+     * @allow update, delete: if false;
+     * @principle Public read-only collection for players, based on team membership.
      */
     match /teams/{teamId}/players/{playerId} {
-      allow get, list: if isSignedIn();
-      allow create: if isSignedIn() && request.resource.data.teamId == teamId;
-      allow update, delete: if isSignedIn() && resource.data.teamId == teamId && isTeamMember(teamId, request.auth.uid);
+      allow get, list: if true;
+      allow create: if isSignedIn();
+      allow update, delete: if false;
     }
 
     /**
-     * @description Controls access to the 'matches' collection, allowing public reads and owner-only writes.
+     * @description Rules for the 'matches' collection.
      * @path /matches/{matchId}
-     * @allow (get, list): Any user can read match information.
-     * @allow (create): Only authenticated users can create a match, ensuring the 'id' field matches the 'matchId' path parameter.
-     * @allow (update, delete): Only the user who created the match can modify or delete it.
-     * @deny  (create): An unauthenticated user attempts to create a match.
-     * @deny  (update, delete): A user attempts to modify or delete a match they do not own.
-     * @principle Public read, owner-only write access control, enforcing document ownership for writes.
+     * @allow (get, list): Any user can read matches information.
+     * @allow (create): Only signed in users can create matches.
+     * @allow update, delete: if false;
+     * @principle Public read-only collection for matches.
      */
     match /matches/{matchId} {
       allow get, list: if true;
-      allow create: if isSignedIn() && request.resource.data.id == matchId;
-      allow update, delete: if isSignedIn() && resource.data.ownerId == request.auth.uid && resource.data.id == matchId;
+      allow create: if isSignedIn();
+      allow update, delete: if false;
     }
-
-    // --- Helper Functions ---
 
     /**
      * @description Checks if the user is signed in.
-     * @return True if the user is authenticated, false otherwise.
+     * @return {boolean} True if the user is signed in, false otherwise.
      */
     function isSignedIn() {
       return request.auth != null;
-    }
-
-    /**
-     * @description Checks if the user is the owner of the document specified by userId.
-     * @param userId The user ID to compare against the request's authentication UID.
-     * @return True if the user ID matches the authenticated user's UID, false otherwise.
-     */
-    function isOwner(userId) {
-      return request.auth.uid == userId;
-    }
-
-    /**
-     * @description Combines the ownership check with the existence check for update/delete operations.
-     * @param teamId The team ID to check ownership against.
-     * @return True if the document exists and the authenticated user is the owner.
-     */
-    // function isExistingOwner(teamId) {
-    //   return resource != null && isOwner(teamId);
-    // }
-
-     /**
-      * @description Checks if the match exists and the authenticated user is the owner.
-      * @param matchId The match ID to check ownership against.
-      * @return True if the document exists and the authenticated user is the owner.
-      */
-    //  function isExistingMatchOwner(matchId) {
-    //       return resource != null && isOwner(matchId);
-    //  }
-
-
-    /**
-     * @description Checks if the user is a team member. For prototyping simplicity, this always returns true.
-     *              In a real application, this would involve checking a team membership map or list.
-     * @param teamId The ID of the team.
-     * @param userId The ID of the user to check.
-     * @return True if the user is considered a member of the team.
-     */
-    function isTeamMember(teamId, userId) {
-      // TODO: Implement actual team membership check (e.g., by reading a /teams/{teamId}/members/{userId} document).
-      return true; // In prototyping mode, assume all users are team members for simplicity.
-    }
-
-    /**
-     * @description Combines the team membership check with the existence check for update/delete operations.
-     * @param teamId The ID of the team.
-     * @param userId The ID of the user to check.
-     * @return True if the document exists and the user is a member of the team.
-     */
-    function isExistingTeamMember(teamId, userId) {
-      return resource != null && isTeamMember(teamId, userId);
     }
   }
 }
