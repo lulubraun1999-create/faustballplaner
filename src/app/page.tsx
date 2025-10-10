@@ -10,46 +10,7 @@ import type { NewsArticle } from '@/app/admin/news/page';
 import { Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
-
-// Mock data to replace the failing Firestore call
-const mockArticles: NewsArticle[] = [
-  {
-    id: '1',
-    title: 'Die Saisonvorbereitung beginnt',
-    content: 'Unsere Teams sind wieder im Training und bereiten sich intensiv auf die kommende Faustball-Saison vor. Die Stimmung ist hervorragend und alle sind motiviert.',
-    publicAuthor: 'TSV Bayer Leverkusen',
-    authorId: 'system',
-    authorName: 'System',
-    createdAt: new Date(),
-    updatedAt: new Date(),
-    imageUrls: ['https://www.tsvbayer04.de/fileadmin/_processed_/9/5/csm_Faustball_dfbl-halle-22-23_frauen_team_4_3_a9b9a6d96e.jpg'],
-    imageKeywords: 'faustball team',
-  },
-  {
-    id: '2',
-    title: 'Wichtiger Sieg am Wochenende',
-    content: 'Die erste Mannschaft der Herren konnte am Wochenende einen wichtigen Sieg einfahren und sichert sich damit einen Platz im oberen Tabellendrittel. Herzlichen Glückwunsch!',
-    publicAuthor: 'TSV Bayer Leverkusen',
-    authorId: 'system',
-    authorName: 'System',
-    createdAt: new Date(new Date().setDate(new Date().getDate() - 1)),
-    updatedAt: new Date(new Date().setDate(new Date().getDate() - 1)),
-    imageUrls: ['https://www.tsvbayer04.de/fileadmin/_processed_/a/e/csm_Faustball_dm-u14-halle-2023_jubel_4_3_f07e59670f.jpg'],
-    imageKeywords: 'faustball celebration',
-  },
-  {
-    id: '3',
-    title: 'Jugend-Teams suchen Verstärkung',
-    content: 'Für unsere U12 und U14 Teams suchen wir noch motivierte Jungen und Mädchen. Bei Interesse einfach beim Training vorbeischauen!',
-    publicAuthor: 'TSV Bayer Leverkusen',
-    authorId: 'system',
-    authorName: 'System',
-    createdAt: new Date(new Date().setDate(new Date().getDate() - 2)),
-    updatedAt: new Date(new Date().setDate(new Date().getDate() - 2)),
-    imageUrls: ['https://www.tsvbayer04.de/fileadmin/_processed_/3/5/csm_Faustball_dm-u12-feld-2022_team_4_3_d167f80ec6.jpg'],
-    imageKeywords: 'faustball youth team',
-  },
-];
+import { mockArticles } from '@/lib/mock-data';
 
 export default function Home() {
   const { user, isUserLoading } = useUser();
@@ -57,7 +18,6 @@ export default function Home() {
   const auth = useAuth();
   const { toast } = useToast();
   
-  // The Firestore call has been removed to prevent permission errors.
   const articles = mockArticles;
   const isLoadingArticles = false;
 

@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useParams } from "next/navigation";
@@ -9,7 +8,7 @@ import { format } from 'date-fns';
 import { de } from 'date-fns/locale';
 import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from "@/components/ui/carousel";
 import React, { useMemo, useState, useEffect } from "react";
-import { mockArticles } from "@/app/page"; // Using mock articles
+import { mockArticles } from '@/lib/mock-data'; // Using mock articles
 import type { NewsArticle } from "@/app/admin/news/page";
 
 export default function ArticleDetailPage() {
