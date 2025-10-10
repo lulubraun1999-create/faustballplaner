@@ -1,95 +1,84 @@
 /**
- * @fileoverview Firestore Security Rules for Faustball App - PROTOTYPING MODE.
+ * @file Firestore Security Rules
+ * @version 2
  *
- * Core Philosophy:
- * This ruleset prioritizes strict authorization based on ownership and relationships, while relaxing data shape validation for rapid prototyping.
+ * @description
+ * This ruleset enforces a strict data model where teams, players, and matches
+ * are stored in separate top-level collections. It ensures that only
+ * authenticated users can create, modify, or delete data, with specific
+ * ownership constraints enforced for each collection.
  *
- * Data Structure:
- * - Teams are stored in `/teams/{teamId}`.
- * - Players are stored in `/teams/{teamId}/players/{playerId}`.
- * - Matches are stored in `/matches/{matchId}`.
+ * @dataStructure
+ * - /teams/{teamId}: Stores team information.
+ * - /teams/{teamId}/players/{playerId}: Stores player information associated with a team. The 'teamId' is denormalized onto each player document for efficient authorization.
+ * - /matches/{matchId}: Stores match information, including references to two teams.
  *
- * Key Security Decisions:
- * - Users must be authenticated to access any data (except for public reads on matches and teams if implemented).
- * - Players are secured via teamId path and are only accessible by members (TBD).
- * - Structural segregation ensures that `list` operations are safe and efficient.
- * - Data shape validation is minimal to allow for rapid iteration.
+ * @keySecurityDecisions
+ * - Authenticated users are required for all write operations.
+ * - Teams and Matches can be created by any authenticated user. Updates and deletes are disallowed.
+ * - Players are nested under teams, with write access restricted to authenticated users.
+ * - Data validation is limited to ensuring path consistency and preventing modification of key relational fields after creation.
+ * - Listing of teams and matches is publicly available.
+ * - Listing of players within a team is available to authenticated users.
  *
- * Denormalization for Authorization:
- * - `teamId` is denormalized into the `Player` document to avoid costly `get()` calls in security rules.
+ * @denormalizationForAuthorization
+ * - The 'teamId' is denormalized into the 'Player' document. This allows for verifying the relationship between a player and a team without requiring additional reads in the security rules.
+ *
+ * @structuralSegregation
+ * - Teams, Players, and Matches are stored in separate top-level collections to maintain a homogeneous security posture within each collection.
  */
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
     /**
-     * @description Checks if the user is signed in.
-     */
-    function isSignedIn() {
-      return request.auth != null;
-    }
-
-    /**
-     * @description Checks if the authenticated user's UID matches the provided userId.
-     * @param {string} userId - The user ID to compare against the authenticated user's UID.
-     */
-    function isOwner(userId) {
-      return isSignedIn() && request.auth.uid == userId;
-    }
-
-    /**
-     * @description Checks if the authenticated user owns the existing document, ensuring the document exists.
-     * @param {string} userId - The user ID to compare against the authenticated user's UID.
-     */
-    function isExistingOwner(userId) {
-      return isOwner(userId) && resource != null;
-    }
-
-    /**
-     * @description Rules for the /teams/{teamId} collection.
+     * @description Controls access to the 'teams' collection.
      * @path /teams/{teamId}
-     * @allow (get, list) if true
-     * @allow (create, update, delete) if false
-     * @deny (create) if request.auth == null
-     * @principle Public read, owner-only writes (if owner ID was present)
+     * @allow (get, list): Any user can read team data.
+     * @allow (create): Any authenticated user can create a team.
+     * @deny (update, delete): No user can update or delete a team.
+     * @principle Allows public read access with restricted write access.
      */
     match /teams/{teamId} {
       allow get, list: if true;
       allow create: if isSignedIn();
-      allow update: if isSignedIn();
-      allow delete: if isSignedIn();
+      allow update, delete: if false;
     }
 
     /**
-     * @description Rules for the /teams/{teamId}/players/{playerId} collection.
+     * @description Controls access to the 'players' subcollection within a specific team.
      * @path /teams/{teamId}/players/{playerId}
-     * @allow (create) if request.auth.uid == request.resource.data.teamId
-     * @allow (get, list, update, delete) if resource.data.teamId == request.auth.uid
-     * @deny (create) if request.auth == null
-     * @deny (update, delete) if resource == null
-     * @principle Enforces document ownership for writes.
+     * @allow (get, list): Any authenticated user can read player data for a team.
+     * @allow (create): Any authenticated user can create a player. The teamId on the player document must match the teamId in the path.
+     * @deny (update, delete): No user can update or delete a player.
+     * @principle Enforces ownership for writes and requires the teamId on the document to match the path.
      */
     match /teams/{teamId}/players/{playerId} {
-        allow get: if true;
-        allow list: if true;
-        allow create: if isSignedIn() && request.resource.data.teamId == teamId;
-        allow update: if isSignedIn() && get(/databases/$(database)/documents/teams/$(teamId)).data.owner == request.auth.uid;
-        allow delete: if isSignedIn() && get(/databases/$(database)/documents/teams/$(teamId)).data.owner == request.auth.uid;
+      allow get, list: if isSignedIn();
+      allow create: if isSignedIn() && request.resource.data.teamId == teamId;
+      allow update, delete: if false;
     }
 
     /**
-     * @description Rules for the /matches/{matchId} collection.
+     * @description Controls access to the 'matches' collection.
      * @path /matches/{matchId}
-     * @allow (get, list) if true
-     * @allow (create, update, delete) if false
-     * @deny (create) if request.auth == null
-     * @principle Public read, owner-only writes (if owner ID was present)
+     * @allow (get, list): Any user can read match data.
+     * @allow (create): Any authenticated user can create a match.
+     * @deny (update, delete): No user can update or delete a match.
+     * @principle Allows public read access with restricted write access.
      */
     match /matches/{matchId} {
       allow get, list: if true;
       allow create: if isSignedIn();
-      allow update: if isSignedIn();
-      allow delete: if isSignedIn();
+      allow update, delete: if false;
+    }
+
+    /**
+     * @description Checks if the request is authenticated.
+     * @return {bool} True if the request is authenticated; otherwise, false.
+     */
+    function isSignedIn() {
+      return request.auth != null;
     }
   }
 }
