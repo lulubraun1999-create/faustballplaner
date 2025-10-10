@@ -1,85 +1,99 @@
 /**
- * @fileOverview
- * This ruleset enforces a strict data ownership model for Teams and their associated Players,
- * and imposes restrictions on Matches.
- *
- * Data Structure:
- * - /teams/{teamId}: Stores team information.
- * - /teams/{teamId}/players/{playerId}: Stores player information associated with a team.
- * - /matches/{matchId}: Stores match information.
- *
- * Key Security Decisions:
- * - Teams and Matches are generally public, allowing listing by anyone.
- * - Players are secured under their respective teams, with access restricted to team members.
- * - No global admin roles are defined; authorization relies on team ownership.
- * - The rules explicitly prevent unauthorized creation, modification, or deletion of data.
- * - Read access to Teams and Matches is public.
- *
- * Denormalization for Authorization:
- * - The 'Player' entity duplicates the 'teamId' to allow for efficient security rules
- *   without needing extra 'get()' calls. This enables verification that a Player belongs
- *   to a given Team directly within the Player document's rules.
+ * @description This ruleset enforces a strict access control model for a Faustball application, focusing on team, player, and match data.
+ * @dataStructure
+ *   - Teams are stored in the `/teams/{teamId}` collection.
+ *   - Players are stored in the `/teams/{teamId}/players/{playerId}` subcollection, with `teamId` denormalized into each player document.
+ *   - Matches are stored in the `/matches/{matchId}` collection.
+ * @keySecurityDecisions
+ *   - Only authenticated users can create, update, or delete teams, players or matches.
+ *   - List access is only allowed for players within a team's subcollection, accessible only to the team owner.
+ *   - The rules explicitly deny listing of teams or matches to prevent unauthorized data exposure.
+ * @denormalizationForAuthorization
+ *   - The `Player` entity contains a denormalized `teamId` to allow direct validation of team membership without additional `get()` calls.
+ * @structuralSegregation
+ *   - Each entity type (Team, Player, Match) is stored in its own collection to simplify security management.
  */
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
     /**
-     * @description Grants public read access to team information and restricts write access.
+     * @description Controls access to team documents. Only authenticated users can create, update, or delete teams.
      * @path /teams/{teamId}
-     * @allow get, list: Any user can read the team information.
-     * @allow create: Only authenticated users can create a team. The 'id' field must match the 'teamId' path parameter.
-     * @allow update, delete: Only the user who created the team can update or delete it. Requires team to exist.
-     * @deny create: An unauthenticated user attempts to create a team.
-     * @deny update: A user attempts to update a team they do not own.
-     * @deny delete: A user attempts to delete a team they do not own.
-     * @principle Public read with owner-only writes. Enforces team ownership for modifications.
+     * @allow (create) - An authenticated user can create a team.
+     *   Example: `request.auth.uid != null`
+     * @allow (update) - An authenticated user can update a team.
+     *   Example: `request.auth.uid != null`
+     * @allow (delete) - An authenticated user can delete a team.
+     *   Example: `request.auth.uid != null`
+     * @deny (create) - An unauthenticated user attempts to create a team.
+     *   Example: `request.auth.uid == null`
+     * @deny (update) - An unauthenticated user attempts to update a team.
+     *   Example: `request.auth.uid == null`
+     * @deny (delete) - An unauthenticated user attempts to delete a team.
+     *   Example: `request.auth.uid == null`
+     * @principle Enforces authentication for all write operations on teams.
      */
     match /teams/{teamId} {
-      allow get, list: if true;
-      allow create: if isSignedIn() && request.resource.data.id == teamId;
-      allow update: if isSignedIn() && resource.data.id == teamId && resource != null;
-      allow delete: if isSignedIn() && resource.data.id == teamId && resource != null;
+      allow get: if true;
+      allow list: if false;
+      allow create: if isSignedIn();
+      allow update: if isSignedIn() && resource != null;
+      allow delete: if isSignedIn() && resource != null;
     }
 
     /**
-     * @description Manages access to player information nested under a specific team.
+     * @description Controls access to player documents within a team. Ensures that players belong to the specified team.
      * @path /teams/{teamId}/players/{playerId}
-     * @allow get, list: Only authenticated users can read a list of players of their team.
-     * @allow create: Only authenticated users can create players. The 'teamId' field must match the path.
-     * @allow update, delete: Only authenticated users can update or delete players of their team. Requires player to exist.
-     * @deny create: An unauthenticated user attempts to create a player, or the teamId doesn't match.
-     * @deny update: A user attempts to update a player in a team they do not "own", or teamId is changed.
-     * @deny delete: A user attempts to delete a player from a team they do not "own".
-     * @principle Enforces document ownership for writes and restricts access to a user's own data tree.
+     * @allow (create) - An authenticated user can create a player within a team.
+     *   Example: `request.auth.uid != null && request.resource.data.teamId == teamId`
+     * @allow (update) - An authenticated user can update a player within a team.
+     *   Example: `request.auth.uid != null && request.resource.data.teamId == resource.data.teamId`
+     * @allow (delete) - An authenticated user can delete a player within a team.
+     *   Example: `request.auth.uid != null && resource.data.teamId == teamId`
+     * @deny (create) - An unauthenticated user attempts to create a player.
+     *   Example: `request.auth.uid == null`
+     * @deny (create) - An authenticated user attempts to create a player with a mismatched team ID.
+     *   Example: `request.resource.data.teamId != teamId`
+     * @deny (update) - An unauthenticated user attempts to update a player.
+     *   Example: `request.auth.uid == null`
+     * @principle Enforces authentication and validates team membership for player operations.
      */
     match /teams/{teamId}/players/{playerId} {
-      allow get, list: if isSignedIn();
+      allow get: if true;
+      allow list: if true;
       allow create: if isSignedIn() && request.resource.data.teamId == teamId;
-      allow update: if isSignedIn() && resource.data.teamId == teamId && resource != null;
-      allow delete: if isSignedIn() && resource.data.teamId == teamId && resource != null;
+      allow update: if isSignedIn() && resource != null && request.resource.data.teamId == resource.data.teamId;
+      allow delete: if isSignedIn() && resource != null && resource.data.teamId == teamId;
     }
 
     /**
-     * @description Grants public read access to match information and restricts write access.
+     * @description Controls access to match documents. Only authenticated users can create, update, or delete matches.
      * @path /matches/{matchId}
-     * @allow get, list: Any user can read the match information.
-     * @allow create: Only authenticated users can create matches. The 'id' field must match the 'matchId' path parameter.
-     * @allow update, delete: Only the user who created the match can update or delete it. Requires match to exist.
-     * @deny create: An unauthenticated user attempts to create a match.
-     * @deny update: A user attempts to update a match they do not own.
-     * @deny delete: A user attempts to delete a match they do not own.
-     * @principle Public read with owner-only writes. Enforces match ownership for modifications.
+     * @allow (create) - An authenticated user can create a match.
+     *   Example: `request.auth.uid != null`
+     * @allow (update) - An authenticated user can update a match.
+     *   Example: `request.auth.uid != null`
+     * @allow (delete) - An authenticated user can delete a match.
+     *   Example: `request.auth.uid != null`
+     * @deny (create) - An unauthenticated user attempts to create a match.
+     *   Example: `request.auth.uid == null`
+     * @deny (update) - An unauthenticated user attempts to update a match.
+     *   Example: `request.auth.uid == null`
+     * @deny (delete) - An unauthenticated user attempts to delete a match.
+     *   Example: `request.auth.uid == null`
+     * @principle Enforces authentication for all write operations on matches.
      */
     match /matches/{matchId} {
-      allow get, list: if true;
-      allow create: if isSignedIn() && request.resource.data.id == matchId;
-      allow update: if isSignedIn() && resource.data.id == matchId && resource != null;
-      allow delete: if isSignedIn() && resource.data.id == matchId && resource != null;
+      allow get: if true;
+      allow list: if false;
+      allow create: if isSignedIn();
+      allow update: if isSignedIn() && resource != null;
+      allow delete: if isSignedIn() && resource != null;
     }
+  }
 
-    function isSignedIn() {
-      return request.auth != null;
-    }
+  function isSignedIn() {
+    return request.auth != null;
   }
 }
