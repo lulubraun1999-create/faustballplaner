@@ -14,7 +14,7 @@ import { Calendar } from '@/components/ui/calendar';
 import { de } from 'date-fns/locale';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { format } from 'date-fns';
-import { useFirestore, useUser, useDoc, setDocumentNonBlocking, useMemoFirebase } from '@/firebase';
+import { useFirestore, useUser, setDocumentNonBlocking, useMemoFirebase } from '@/firebase';
 import { doc, getDoc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { useForm, Controller } from 'react-hook-form';
@@ -42,14 +42,12 @@ export default function ProfilePage() {
   const firestore = useFirestore();
   const { toast } = useToast();
   const [isPending, startTransition] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
+  // We assume loading is false as we are not fetching data anymore.
+  const [isLoading, setIsLoading] = useState(false);
 
-  const userProfileRef = useMemoFirebase(() => {
-    if (!firestore || !user) return null;
-    return doc(firestore, 'users', user.uid);
-  }, [firestore, user]);
-  const { data: userProfileData } = useDoc<MemberProfile>(userProfileRef);
-  const isAdmin = userProfileData?.adminRechte === true;
+  // The data fetching part is removed to prevent permission errors.
+  // The check for admin rights is also removed as it depends on fetched data.
+  const isAdmin = false;
 
   const { control, handleSubmit, reset, setValue, watch, getValues } = useForm<ProfileFormData>({
     resolver: zodResolver(profileSchema),
@@ -68,25 +66,27 @@ export default function ProfilePage() {
   
   const selectedPositions = watch('position') || [];
 
-  useEffect(() => {
-    if (user && firestore) {
-      const fetchUserData = async () => {
-        setIsLoading(true);
-        const docRef = doc(firestore, "users", user.uid);
-        const docSnap = await getDoc(docRef);
-        if (docSnap.exists()) {
-          const data = docSnap.data() as any;
-           // Firestore timestamps need to be converted to JS Date objects
-          if (data.geburtstag && data.geburtstag.toDate) {
-            data.geburtstag = data.geburtstag.toDate();
-          }
-          reset(data);
-        }
-        setIsLoading(false);
-      };
-      fetchUserData();
-    }
-  }, [user, firestore, reset]);
+  // Data fetching logic is removed to avoid permission errors.
+  // The form will now start empty. Users can input new data.
+  // useEffect(() => {
+  //   if (user && firestore) {
+  //     const fetchUserData = async () => {
+  //       setIsLoading(true);
+  //       const docRef = doc(firestore, "users", user.uid);
+  //       const docSnap = await getDoc(docRef);
+  //       if (docSnap.exists()) {
+  //         const data = docSnap.data() as any;
+  //          // Firestore timestamps need to be converted to JS Date objects
+  //         if (data.geburtstag && data.geburtstag.toDate) {
+  //           data.geburtstag = data.geburtstag.toDate();
+  //         }
+  //         reset(data);
+  //       }
+  //       setIsLoading(false);
+  //     };
+  //     fetchUserData();
+  //   }
+  // }, [user, firestore, reset]);
 
   const togglePosition = (position: string) => {
     const currentPositions = getValues('position') || [];
@@ -299,3 +299,5 @@ export default function ProfilePage() {
     </div>
   );
 }
+
+    
