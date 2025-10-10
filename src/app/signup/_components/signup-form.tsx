@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useForm, Controller } from 'react-hook-form';
@@ -14,10 +15,10 @@ import {
 } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { useUser, setDocumentNonBlocking } from '@/firebase';
+import { useUser } from '@/firebase';
 import { initializeApp, getApps, getApp } from 'firebase/app';
 import { getAuth, createUserWithEmailAndPassword, updateProfile } from 'firebase/auth';
-import { getFirestore, doc } from 'firebase/firestore';
+import { getFirestore, doc, setDoc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
 import { useState, useEffect } from 'react';
@@ -32,7 +33,6 @@ const formSchema = z
     email: z.string().email('Ungültige E-Mail-Adresse.'),
     password: z.string().min(6, 'Passwort muss mindestens 6 Zeichen haben.'),
     confirmPassword: z.string(),
-    registrationCode: z.string().optional(),
   })
   .refine((data) => data.password === data.confirmPassword, {
     message: 'Passwörter stimmen nicht überein.',
@@ -63,7 +63,6 @@ export function SignupForm() {
       email: '',
       password: '',
       confirmPassword: '',
-      registrationCode: '',
     },
   });
 
@@ -71,7 +70,6 @@ export function SignupForm() {
     startTransition(true);
 
     try {
-      // Initialize Firebase directly here, ignoring any potentially broken global instances.
       const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
       const auth = getAuth(app);
       const firestore = getFirestore(app);
@@ -99,9 +97,10 @@ export function SignupForm() {
       const userDocRef = doc(firestore, 'users', newUser.uid);
       const memberDocRef = doc(firestore, 'members', newUser.uid);
 
-      // These are non-blocking writes
-      setDocumentNonBlocking(userDocRef, userDocData, { merge: true });
-      setDocumentNonBlocking(memberDocRef, userDocData, { merge: true });
+      // Using setDoc which is part of the standard Firebase SDK, not a custom hook
+      await setDoc(userDocRef, userDocData, { merge: true });
+      await setDoc(memberDocRef, userDocData, { merge: true });
+
 
       toast({
         title: 'Registrierung erfolgreich',
@@ -123,7 +122,7 @@ export function SignupForm() {
             break;
           case 'auth/invalid-api-key':
           case 'auth/api-key-not-valid':
-             description = `Die Firebase-Verbindung ist fehlerhaft. (${error.code})`;
+             description = `Die Firebase-Verbindung ist fehlerhaft. Bitte versuchen Sie es später erneut. (${error.code})`;
              break;
           default:
             console.error('Registration Error:', error);
@@ -258,3 +257,5 @@ export function SignupForm() {
     </Card>
   );
 }
+
+    
