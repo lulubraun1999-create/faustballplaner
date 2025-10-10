@@ -1,37 +1,41 @@
 
 "use client";
 
-import { useFirestore, useDoc, useMemoFirebase } from "@/firebase";
 import { useParams } from "next/navigation";
-import { doc } from "firebase/firestore";
-import { NewsArticle } from "@/app/admin/news/page";
 import { Header } from "@/components/shared/header";
 import { Loader2 } from "lucide-react";
 import Image from "next/image";
 import { format } from 'date-fns';
 import { de } from 'date-fns/locale';
 import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from "@/components/ui/carousel";
-import React, { useMemo } from "react";
+import React, { useMemo, useState, useEffect } from "react";
+import { mockArticles } from "@/app/page"; // Using mock articles
+import type { NewsArticle } from "@/app/admin/news/page";
 
 export default function ArticleDetailPage() {
-  const firestore = useFirestore();
   const params = useParams();
   const articleId = params.id as string;
-
-  const articleRef = useMemoFirebase(() => {
-    if (!firestore || !articleId) return null;
-    return doc(firestore, 'news', articleId);
-  }, [firestore, articleId]);
-
-  const { data: article, isLoading } = useDoc<NewsArticle>(articleRef);
   
+  const [article, setArticle] = useState<NewsArticle | null | undefined>(undefined);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    setIsLoading(true);
+    if (articleId) {
+      // Find the article from the mock data array
+      const foundArticle = mockArticles.find(a => a.id === articleId);
+      setArticle(foundArticle || null);
+    }
+    setIsLoading(false);
+  }, [articleId]);
+
   const formatDate = (timestamp: any) => {
     if (!timestamp) return '';
     const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
     return format(date, "d. MMMM yyyy", { locale: de });
   };
 
-  if (isLoading) {
+  if (isLoading || article === undefined) {
     return (
       <div className="flex min-h-screen flex-col">
         <Header />
