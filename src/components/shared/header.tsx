@@ -12,24 +12,17 @@ import {
 import { Button } from '@/components/ui/button';
 import { ThemeToggle } from '../theme-toggle';
 import { ChevronDown, LogOut, User as UserIcon, LogIn } from 'lucide-react';
-import { useAuth, useDoc, useFirestore, useUser, useMemoFirebase } from '@/firebase';
+import { useAuth, useUser } from '@/firebase';
 import { useRouter } from 'next/navigation';
-import { doc } from 'firebase/firestore';
-import type { MemberProfile } from '@/app/admin/members/page';
-import { useMemo } from 'react';
 
 export function Header() {
   const { user } = useUser();
   const auth = useAuth();
-  const firestore = useFirestore();
   const router = useRouter();
 
-  const userProfileRef = useMemoFirebase(() => {
-    if (!firestore || !user) return null;
-    return doc(firestore, 'users', user.uid);
-  }, [firestore, user]);
-  const { data: userProfile } = useDoc<MemberProfile>(userProfileRef);
-  const hasAdminRights = userProfile?.adminRechte === true;
+  // The call to fetch user profile has been removed to prevent permission errors.
+  // As a result, the admin check is disabled.
+  const hasAdminRights = false;
 
   const handleLogout = async () => {
     if (auth) {
